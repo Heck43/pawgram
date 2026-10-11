@@ -209,7 +209,32 @@ jobs:
           if (Test-Path "$out\Updater.exe") {
               Copy-Item -Force "$out\Updater.exe" "$artifact\"
           }
-          Write-Host "[✓] Artifact prepared with Telegram.exe and bundled tg-ws-proxy.exe!"
+
+          # Bundle Python 3.11 embeddable runtime
+          $pyUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+          $pyZip = "$artifact\py_embed.zip"
+          Write-Host "Downloading Python 3.11 embeddable runtime from $pyUrl..."
+          try {
+              Invoke-WebRequest -Uri $pyUrl -OutFile $pyZip
+              Expand-Archive -Path $pyZip -DestinationPath "$artifact\extera_runtime" -Force
+              Copy-Item -Force "$artifact\extera_runtime\python311.dll" "$artifact\python311.dll"
+              Remove-Item -Force $pyZip
+              Write-Host "[✓] Python 3.11 runtime bundled!"
+          } catch {
+              Write-Warning "Failed to download python runtime: $_"
+          }
+
+          # Bundle extera_sdk
+          $sdkSource = "$env:GITHUB_WORKSPACE\Telegram\SourceFiles\custom_features\extera_sdk"
+          if (Test-Path $sdkSource) {
+              Copy-Item -Recurse -Force $sdkSource "$artifact\extera_sdk"
+              Write-Host "[✓] extera_sdk bundled!"
+          }
+
+          # Create default extera_plugins directory
+          New-Item -ItemType Directory -Force -Path "$artifact\extera_plugins"
+
+          Write-Host "[✓] Artifact prepared with Telegram.exe, tg-ws-proxy.exe, Python runtime, and extera_sdk!"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

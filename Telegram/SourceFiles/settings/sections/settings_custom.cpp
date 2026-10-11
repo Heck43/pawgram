@@ -13,6 +13,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "custom_features/in_game_overlay.hpp"
 #include "custom_features/ws_proxy_manager.hpp"
 #include "custom_features/memory_optimizer.hpp"
+#include "custom_features/plugins_engine.hpp"
+#include "core/file_utilities.h"
 #include "boxes/connection_box.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
@@ -114,6 +116,19 @@ private:
 class CustomPanicSection : public Section<CustomPanicSection> {
 public:
 	CustomPanicSection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomPluginsSection : public Section<CustomPluginsSection> {
+public:
+	CustomPluginsSection(
 		QWidget *parent,
 		not_null<Window::SessionController*> controller);
 
@@ -822,6 +837,129 @@ void CustomPanicSection::setupContent() {
 	Ui::ResizeFitChild(this, content);
 }
 
+// 6. Плагины exteraGram
+const auto kPluginsMeta = BuildHelper({
+	.id = CustomPluginsSection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_features,
+	.icon = &st::menuIconCustomize,
+}, [](SectionBuilder &builder) {
+	builder.addSubsectionTitle(rpl::single(u"Система плагинов (Python Engine)"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/enable_plugin_engine"_q,
+		.title = rpl::single(u"Включить систему плагинов"_q),
+		.checked = CustomFeatures::GetConfig().enablePluginEngine,
+		.keywords = { u"plugin"_q, u"python"_q, u"extera"_q, u"mod"_q },
+	})) {
+		check->checkedChanges() | rpl::start_with_next([=](bool checked) {
+			CustomFeatures::UpdateConfig([=](auto &cfg) {
+				cfg.enablePluginEngine = checked;
+			});
+			if (checked) {
+				CustomFeatures::PluginsEngine::GetInstance().init();
+			}
+		}, check->lifetime());
+	}
+
+	builder.addDividerText(rpl::single(
+		u"Позволяет загружать Python плагины (.plugin, .py) от exteraGram "
+		u"с собственными настройками, перехватом сообщений и буллетинами."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"➕ Установить плагин (*.plugin, *.py)..."_q),
+		.icon = &st::menuIconDevices,
+		.onClick = [=] {
+			FileDialog::GetOpenPath(
+				builder.controller()->widget(),
+				u"Выберите файл плагина"_q,
+				u"Плагины exteraGram (*.plugin *.py *.zip);;Все файлы (*.*)"_q,
+				crl::guard(builder.controller(), [=](const FileDialog::OpenResult &result) {
+					if (!result.paths.isEmpty()) {
+						CustomFeatures::PluginsEngine::GetInstance().installPlugin(result.paths.first());
+					}
+				}));
+		},
+	});
+
+	builder.addButton({
+		.title = rpl::single(u"📂 Открыть папку плагинов (extera_plugins)"_q),
+		.icon = &st::menuIconCustomize,
+		.onClick = [=] {
+			CustomFeatures::PluginsEngine::GetInstance().openPluginsFolder();
+		},
+	});
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Установленные плагины"_q));
+
+	if (CustomFeatures::GetConfig().enablePluginEngine) {
+		CustomFeatures::PluginsEngine::GetInstance().init();
+	}
+	const auto plugins = CustomFeatures::PluginsEngine::GetInstance().getPlugins();
+	if (plugins.empty()) {
+		builder.addDividerText(rpl::single(
+			u"Плагины пока не обнаружены. Поместите файлы в папку extera_plugins "
+			u"или нажмите «Установить плагин» выше."_q));
+	} else {
+		for (const auto &p : plugins) {
+			builder.addSubsectionTitle(rpl::single(
+				p.name + (p.version.isEmpty() ? QString() : (u" v" + p.version))));
+
+			if (!p.description.isEmpty()) {
+				builder.addDividerText(rpl::single(p.description));
+			}
+
+			// Render plugin settings
+			for (const auto &s : p.settings) {
+				if (s.type == u"header"_q) {
+					builder.addSubsectionTitle(rpl::single(s.text));
+				} else if (s.type == u"switch"_q) {
+					if (const auto chk = builder.addCheckbox({
+						.id = u"plugin/" + p.id + u"/" + s.key,
+						.title = rpl::single(s.text),
+						.checked = s.boolValue,
+					})) {
+						const auto pId = p.id;
+						const auto sKey = s.key;
+						chk->checkedChanges() | rpl::start_with_next([=](bool checked) {
+							CustomFeatures::PluginsEngine::GetInstance().saveSetting(
+								pId, sKey, checked ? u"true"_q : u"false"_q);
+						}, chk->lifetime());
+					}
+					if (!s.subtext.isEmpty()) {
+						builder.addDividerText(rpl::single(s.subtext));
+					}
+				} else if (s.type == u"text"_q) {
+					builder.addDividerText(rpl::single(
+						s.text + (s.subtext.isEmpty() ? QString() : (u": " + s.subtext))));
+				} else if (s.type == u"divider"_q) {
+					builder.addDivider();
+				}
+			}
+
+			builder.addDivider();
+		}
+	}
+});
+
+CustomPluginsSection::CustomPluginsSection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomPluginsSection::title() {
+	return rpl::single(u"Плагины"_q);
+}
+
+void CustomPluginsSection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kPluginsMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
 // Главный раздел Pawgram
 const auto kCustomMeta = BuildHelper({
 	.id = CustomSection::Id(),
@@ -855,6 +993,13 @@ const auto kCustomMeta = BuildHelper({
 		.targetSection = CustomInterfaceSection::Id(),
 		.icon = { &st::menuIconPalette },
 		.keywords = { u"interface"_q, u"overlay"_q, u"game"_q, u"ads"_q, u"scroll"_q, u"radius"_q },
+	});
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Плагины (exteraGram Plugins)"_q),
+		.targetSection = CustomPluginsSection::Id(),
+		.icon = { &st::menuIconCustomize },
+		.keywords = { u"plugins"_q, u"extera"_q, u"python"_q, u"mods"_q },
 	});
 
 	builder.addSectionButton({
