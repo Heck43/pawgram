@@ -12,6 +12,8 @@ import os
 
 class HookStrategy(IntEnum):
     DEFAULT = 0
+    PASS = 0
+    NONE = 0
     MODIFY = 1
     CANCEL = 2
 
