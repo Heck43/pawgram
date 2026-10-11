@@ -5,15 +5,15 @@ In-App Notifications Plugin for Pawgram Desktop
 
 from typing import Any, List
 from base_plugin import BasePlugin, HookResult, HookStrategy, MessageParams
-from ui.settings import Header, Switch, Input, Divider, Text
+from ui.settings import Header, Switch, Input, Divider, Text, Selector
 import client_utils
 import winsound
 
 __id__ = "in_app_notifications"
 __name__ = "In-App Notifications"
-__author__ = "@meeowPlugins & @Pawgram"
-__version__ = "1.3.0"
-__description__ = "Внутриклиентские всплывающие уведомления (Bulletins) для Telegram Desktop с гибкими настройками."
+__author__ = "@meeowPlugins"
+__version__ = "1.2.1"
+__description__ = "Плагин с гибкими настройками отображающий уведомления Telegram локально внутри приложения."
 
 class InAppNotificationsPlugin(BasePlugin):
     def on_plugin_load(self):
@@ -31,41 +31,101 @@ class InAppNotificationsPlugin(BasePlugin):
 
     def create_settings(self) -> List[Any]:
         return [
-            Header("Основные настройки"),
+            # 1. Раздел: Настройки
+            Header("Настройки"),
             Switch(
-                key="enabled",
-                text="Включить внутриклиентские уведомления",
-                subtext="Отображать всплывающие плашки поверх интерфейса",
+                key="all_notifications",
+                text="Все уведомления",
+                subtext="Отображать всплывающие плашки для всех входящих событий",
+                default=False
+            ),
+            Switch(
+                key="mentions",
+                text="Упоминания",
+                subtext="Уведомлять при ответе или упоминании через @username",
                 default=True
+            ),
+            Switch(
+                key="unmuted",
+                text="Не заглушенные",
+                subtext="Показывать плашки только для чатов со включенным звуком",
+                default=True
+            ),
+            Switch(
+                key="all_pms",
+                text="Все ЛС",
+                subtext="Всплывающие уведомления для личных сообщений",
+                default=True
+            ),
+            Switch(
+                key="archive",
+                text="Архив",
+                subtext="Показывать плашки для чатов, находящихся в архиве",
+                default=False
+            ),
+
+            Divider(),
+
+            # 2. Раздел: Чаты
+            Header("Чаты"),
+            Switch(
+                key="chat_groups",
+                text="Группы",
+                subtext="Всплывающие уведомления в групповых чатах",
+                default=True
+            ),
+            Switch(
+                key="chat_channels",
+                text="Каналы",
+                subtext="Всплывающие уведомления для постов в каналах",
+                default=True
+            ),
+            Switch(
+                key="chat_private",
+                text="Приватные чаты",
+                subtext="Уведомления для личных диалогов",
+                default=True
+            ),
+            Switch(
+                key="chat_bots",
+                text="Боты",
+                subtext="Всплывающие уведомления от ботов",
+                default=True
+            ),
+
+            Divider(),
+
+            # 3. Раздел: Кастомизация
+            Header("Кастомизация"),
+            Switch(
+                key="show_on_top",
+                text="Отображать уведомление наверху",
+                subtext="Показывать капсулу в верхней части окна чата",
+                default=True
+            ),
+            Input(
+                key="duration",
+                text="Длительность (секунды)",
+                subtext="Время отображения уведомления на экране",
+                default="4.0"
+            ),
+            Switch(
+                key="sound",
+                text="Звуковой сигнал",
+                subtext="Воспроизводить системный звук при показе плашки",
+                default=False
             ),
             Switch(
                 key="notify_on_send",
-                text="Уведомления при отправке сообщений",
-                subtext="Показывать всплывающую плашку при отправке своих сообщений",
-                default=True
-            ),
-            Switch(
-                key="play_sound",
-                text="Звук уведомления",
-                subtext="Воспроизводить системный сигнал при показе плашки",
+                text="Уведомлять при отправке",
+                subtext="Показывать плашку при отправке своих сообщений",
                 default=False
             ),
+
             Divider(),
-            Header("Внешний вид и анимация"),
-            Input(
-                key="duration",
-                text="Длительность показа (секунды)",
-                subtext="Время отображения уведомления на экране",
-                default="3.5"
-            ),
-            Input(
-                key="default_title",
-                text="Заголовок по умолчанию",
-                subtext="Текст заголовка плашки для быстрых уведомлений",
-                default="Новое сообщение"
-            ),
-            Divider(),
-            Header("Команды тестирования"),
+
+            # 4. Раздел: Команды теста
+            Header("Тестирование"),
             Text(
                 text=".notify <текст>",
                 subtext="Отправляет тестовое всплывающее уведомление"
@@ -73,34 +133,26 @@ class InAppNotificationsPlugin(BasePlugin):
             Text(
                 text=".bulletin <заголовок> | <текст>",
                 subtext="Отправляет плашку с произвольным заголовком и текстом"
-            ),
-            Text(
-                text="Платформа",
-                subtext="Pawgram Desktop Native Plugins API 2.0"
             )
         ]
 
     def on_send_message_hook(self, account: int, params: MessageParams) -> HookResult:
-        if not self.get_setting("enabled", True):
-            return HookResult(strategy=HookStrategy.PASS)
-
         if not hasattr(params, "message") or not isinstance(params.message, str):
             return HookResult(strategy=HookStrategy.PASS)
 
         text = params.message.strip()
 
         try:
-            duration = float(self.get_setting("duration", "3.5"))
+            duration = float(self.get_setting("duration", "4.0"))
         except (ValueError, TypeError):
-            duration = 3.5
+            duration = 4.0
 
-        play_sound = self.get_setting("play_sound", False)
+        play_sound = self.get_setting("sound", False)
 
         # Команда .notify <текст>
         if text.startswith(".notify"):
             parts = text.split(" ", 1)
             content = parts[1].strip() if len(parts) > 1 else "Тестовое уведомление"
-            default_title = self.get_setting("default_title", "Новое сообщение")
 
             if play_sound:
                 try:
@@ -108,7 +160,7 @@ class InAppNotificationsPlugin(BasePlugin):
                 except Exception:
                     pass
 
-            client_utils.show_bulletin(default_title, content, duration)
+            client_utils.show_bulletin("Уведомление", content, duration)
             self.logger.info(f"Triggered .notify: {content}")
             return HookResult(strategy=HookStrategy.CANCEL)
 
@@ -136,7 +188,7 @@ class InAppNotificationsPlugin(BasePlugin):
             return HookResult(strategy=HookStrategy.CANCEL)
 
         # Уведомление при обычной отправке (если включено в настройках)
-        if self.get_setting("notify_on_send", True) and not text.startswith("."):
+        if self.get_setting("notify_on_send", False) and not text.startswith("."):
             if play_sound:
                 try:
                     winsound.MessageBeep(winsound.MB_OK)

@@ -226,16 +226,22 @@ public:
                                                 if (pDefVal) _Py_DECREF(pDefVal);
 
                                                 if (pVal) {
-                                                    if (_PyBool_Check && _PyBool_Check(pVal)) {
-                                                        sItem.boolValue = _PyObject_IsTrue(pVal);
-                                                        sItem.value = sItem.boolValue ? u"True"_q : u"False"_q;
-                                                    } else {
-                                                        void *pStr = _PyObject_Str(pVal);
-                                                        if (pStr) {
-                                                            const char *s = _PyUnicode_AsUTF8(pStr);
-                                                            if (s) sItem.value = QString::fromUtf8(s);
-                                                            _Py_DECREF(pStr);
+                                                    if (_PyObject_IsTrue) {
+                                                        sItem.boolValue = (_PyObject_IsTrue(pVal) != 0);
+                                                        sItem.value = sItem.boolValue ? u"true"_q : u"false"_q;
+                                                    }
+                                                    void *pStr = _PyObject_Str(pVal);
+                                                    if (pStr) {
+                                                        const char *s = _PyUnicode_AsUTF8(pStr);
+                                                        if (s) {
+                                                            sItem.value = QString::fromUtf8(s);
+                                                            if (sItem.value.compare(u"true"_q, Qt::CaseInsensitive) == 0 || sItem.value == u"1"_q) {
+                                                                sItem.boolValue = true;
+                                                            } else if (sItem.value.compare(u"false"_q, Qt::CaseInsensitive) == 0 || sItem.value == u"0"_q) {
+                                                                sItem.boolValue = false;
+                                                            }
                                                         }
+                                                        _Py_DECREF(pStr);
                                                     }
                                                     _Py_DECREF(pVal);
                                                 }

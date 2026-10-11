@@ -903,17 +903,22 @@ const auto kPluginsMeta = BuildHelper({
 			u"или нажмите «Установить плагин» выше."_q));
 	} else {
 		for (const auto &p : plugins) {
-			const auto titleText = p.name + (p.version.isEmpty() ? QString() : (u" v"_q + p.version));
+			builder.addDivider();
+			const auto titleText = u"📦 "_q + p.name + (p.version.isEmpty() ? QString() : (u" v"_q + p.version));
 			builder.addSubsectionTitle(rpl::single(QString(titleText)));
 
-			if (!p.description.isEmpty()) {
-				builder.addDividerText(rpl::single(QString(p.description)));
+			QString desc = p.description;
+			if (!p.author.isEmpty()) {
+				desc += (desc.isEmpty() ? QString() : u"\n"_q) + u"Автор: "_q + p.author;
+			}
+			if (!desc.isEmpty()) {
+				builder.addDividerText(rpl::single(QString(desc)));
 			}
 
 			// Render plugin settings
 			for (const auto &s : p.settings) {
 				if (s.type == u"header"_q) {
-					builder.addSubsectionTitle(rpl::single(QString(s.text)));
+					builder.addSubsectionTitle(rpl::single(u"🔹 "_q + QString(s.text)));
 				} else if (s.type == u"switch"_q) {
 					const auto checkId = u"plugin/"_q + p.id + u"/"_q + s.key;
 					if (const auto chk = builder.addCheckbox({
@@ -932,8 +937,11 @@ const auto kPluginsMeta = BuildHelper({
 					if (!s.subtext.isEmpty()) {
 						builder.addDividerText(rpl::single(QString(s.subtext)));
 					}
+				} else if (s.type == u"input"_q) {
+					const auto displayVal = s.value.isEmpty() ? s.subtext : s.value;
+					builder.addDividerText(rpl::single(QString(s.text) + u": "_q + QString(displayVal)));
 				} else if (s.type == u"text"_q) {
-					const auto lineText = s.text + (s.subtext.isEmpty() ? QString() : (u": "_q + s.subtext));
+					const auto lineText = s.text + (s.subtext.isEmpty() ? QString() : (u" — "_q + s.subtext));
 					builder.addDividerText(rpl::single(QString(lineText)));
 				} else if (s.type == u"divider"_q) {
 					builder.addDivider();
