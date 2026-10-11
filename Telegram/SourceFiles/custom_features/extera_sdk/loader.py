@@ -253,7 +253,8 @@ def install_plugin(file_path: str) -> bool:
     import shutil
     try:
         dest = os.path.join(_manager.plugins_dir, os.path.basename(file_path))
-        shutil.copy2(file_path, dest)
+        if os.path.abspath(file_path) != os.path.abspath(dest):
+            shutil.copy2(file_path, dest)
         _manager.load_plugin(dest)
         logger.info(f"Successfully installed plugin from {file_path} to {dest}")
         import client_utils
