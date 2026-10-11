@@ -852,10 +852,10 @@ const auto kPluginsMeta = BuildHelper({
 		.checked = CustomFeatures::GetConfig().enablePluginEngine,
 		.keywords = { u"plugin"_q, u"python"_q, u"extera"_q, u"mod"_q },
 	})) {
-		check->checkedChanges() | rpl::start_with_next([=](bool checked) {
-			CustomFeatures::UpdateConfig([=](auto &cfg) {
-				cfg.enablePluginEngine = checked;
-			});
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enablePluginEngine = checked;
+			CustomFeatures::GetConfig().save();
 			if (checked) {
 				CustomFeatures::PluginsEngine::GetInstance().init();
 			}
@@ -871,7 +871,7 @@ const auto kPluginsMeta = BuildHelper({
 		.icon = &st::menuIconDevices,
 		.onClick = [=] {
 			FileDialog::GetOpenPath(
-				builder.controller()->widget(),
+				Core::App().getFileDialogParent(),
 				u"Выберите файл плагина"_q,
 				u"Плагины exteraGram (*.plugin *.py *.zip);;Все файлы (*.*)"_q,
 				crl::guard(builder.controller(), [=](const FileDialog::OpenResult &result) {
@@ -903,36 +903,38 @@ const auto kPluginsMeta = BuildHelper({
 			u"или нажмите «Установить плагин» выше."_q));
 	} else {
 		for (const auto &p : plugins) {
-			builder.addSubsectionTitle(rpl::single(
-				p.name + (p.version.isEmpty() ? QString() : (u" v" + p.version))));
+			const auto titleText = p.name + (p.version.isEmpty() ? QString() : (u" v"_q + p.version));
+			builder.addSubsectionTitle(rpl::single(QString(titleText)));
 
 			if (!p.description.isEmpty()) {
-				builder.addDividerText(rpl::single(p.description));
+				builder.addDividerText(rpl::single(QString(p.description)));
 			}
 
 			// Render plugin settings
 			for (const auto &s : p.settings) {
 				if (s.type == u"header"_q) {
-					builder.addSubsectionTitle(rpl::single(s.text));
+					builder.addSubsectionTitle(rpl::single(QString(s.text)));
 				} else if (s.type == u"switch"_q) {
+					const auto checkId = u"plugin/"_q + p.id + u"/"_q + s.key;
 					if (const auto chk = builder.addCheckbox({
-						.id = u"plugin/" + p.id + u"/" + s.key,
-						.title = rpl::single(s.text),
+						.id = checkId,
+						.title = rpl::single(QString(s.text)),
 						.checked = s.boolValue,
 					})) {
 						const auto pId = p.id;
 						const auto sKey = s.key;
-						chk->checkedChanges() | rpl::start_with_next([=](bool checked) {
+						chk->checkedChanges(
+						) | rpl::on_next([=](bool checked) {
 							CustomFeatures::PluginsEngine::GetInstance().saveSetting(
 								pId, sKey, checked ? u"true"_q : u"false"_q);
 						}, chk->lifetime());
 					}
 					if (!s.subtext.isEmpty()) {
-						builder.addDividerText(rpl::single(s.subtext));
+						builder.addDividerText(rpl::single(QString(s.subtext)));
 					}
 				} else if (s.type == u"text"_q) {
-					builder.addDividerText(rpl::single(
-						s.text + (s.subtext.isEmpty() ? QString() : (u": " + s.subtext))));
+					const auto lineText = s.text + (s.subtext.isEmpty() ? QString() : (u": "_q + s.subtext));
+					builder.addDividerText(rpl::single(QString(lineText)));
 				} else if (s.type == u"divider"_q) {
 					builder.addDivider();
 				}
