@@ -23,7 +23,11 @@ WPARAM = wintypes.WPARAM
 LPARAM = wintypes.LPARAM
 LPCWSTR = wintypes.LPCWSTR
 
-WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_longlong, HWND, UINT, WPARAM, LPARAM)
+LRESULT = ctypes.c_longlong
+WNDPROC = ctypes.WINFUNCTYPE(LRESULT, HWND, UINT, WPARAM, LPARAM)
+
+ctypes.windll.user32.DefWindowProcW.argtypes = [HWND, UINT, WPARAM, LPARAM]
+ctypes.windll.user32.DefWindowProcW.restype = LRESULT
 
 class WNDCLASSEXW(ctypes.Structure):
     _fields_ = [

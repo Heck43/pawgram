@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QDir>
+#include <QFile>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QUrl>
@@ -12,6 +13,11 @@
 
 #include "ui/toast/toast.h"
 #include "crl/crl_on_main.h"
+
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonValue>
 
 namespace CustomFeatures {
 
@@ -182,87 +188,46 @@ public:
 
         void *pModule = _PyImport_ImportModule("loader");
         if (pModule) {
-            void *pGetMgr = _PyObject_GetAttrString(pModule, "get_manager");
-            if (pGetMgr) {
-                void *pMgr = _PyObject_CallObject(pGetMgr, nullptr);
-                if (pMgr) {
-                    void *pPluginsDict = _PyObject_GetAttrString(pMgr, "plugins");
-                    if (pPluginsDict) {
-                        void *pKey = nullptr, *pPlugin = nullptr;
-                        intptr_t pos = 0;
-                        while (_PyDict_Next && _PyDict_Next(pPluginsDict, &pos, &pKey, &pPlugin)) {
-                            PluginUiData info;
+            void *pGetJson = _PyObject_GetAttrString(pModule, "get_plugins_ui_json");
+            if (pGetJson) {
+                void *pRes = _PyObject_CallObject(pGetJson, nullptr);
+                if (pRes) {
+                    const char *utf8Str = _PyUnicode_AsUTF8(pRes);
+                    if (utf8Str) {
+                        const auto doc = QJsonDocument::fromJson(QByteArray(utf8Str));
+                        if (doc.isArray()) {
+                            const auto arr = doc.array();
+                            for (const auto &val : arr) {
+                                if (!val.isObject()) continue;
+                                const auto obj = val.toObject();
+                                PluginUiData p;
+                                p.id = obj.value(u"id"_q).toString();
+                                p.name = obj.value(u"name"_q).toString();
+                                p.version = obj.value(u"version"_q).toString(u"1.0.0"_q);
+                                p.author = obj.value(u"author"_q).toString();
+                                p.description = obj.value(u"description"_q).toString();
+                                p.enabled = obj.value(u"enabled"_q).toBool(true);
 
-                            info.id = getPyStringAttr(pPlugin, "id");
-                            info.name = getPyStringAttr(pPlugin, "name");
-                            info.version = getPyStringAttr(pPlugin, "version", "1.0.0");
-                            info.author = getPyStringAttr(pPlugin, "author");
-                            info.description = getPyStringAttr(pPlugin, "description");
-                            info.enabled = true;
-
-                            // Settings
-                            void *pCreateSettings = _PyObject_GetAttrString(pPlugin, "create_settings");
-                            if (pCreateSettings) {
-                                void *pSettingsList = _PyObject_CallObject(pCreateSettings, nullptr);
-                                if (pSettingsList) {
-                                    intptr_t nItems = _PyList_Size ? _PyList_Size(pSettingsList) : 0;
-                                    for (intptr_t i = 0; i < nItems; ++i) {
-                                        void *pItem = _PyList_GetItem(pSettingsList, i);
-                                        if (!pItem) continue;
-
-                                        PluginSettingItem sItem;
-                                        sItem.type = getPyStringAttr(pItem, "type", "text");
-                                        sItem.key = getPyStringAttr(pItem, "key");
-                                        sItem.text = getPyStringAttr(pItem, "text");
-                                        sItem.subtext = getPyStringAttr(pItem, "subtext");
-
-                                        if (!sItem.key.isEmpty()) {
-                                            void *pGetSetting = _PyObject_GetAttrString(pPlugin, "get_setting");
-                                            if (pGetSetting) {
-                                                void *pDefVal = _PyObject_GetAttrString(pItem, "default");
-                                                void *pArgs = _PyTuple_Pack(2, _PyUnicode_FromString(sItem.key.toUtf8().constData()), pDefVal ? pDefVal : pItem);
-                                                void *pVal = _PyObject_CallObject(pGetSetting, pArgs);
-                                                _Py_DECREF(pArgs);
-                                                if (pDefVal) _Py_DECREF(pDefVal);
-
-                                                if (pVal) {
-                                                    if (_PyObject_IsTrue) {
-                                                        sItem.boolValue = (_PyObject_IsTrue(pVal) != 0);
-                                                        sItem.value = sItem.boolValue ? u"true"_q : u"false"_q;
-                                                    }
-                                                    void *pStr = _PyObject_Str(pVal);
-                                                    if (pStr) {
-                                                        const char *s = _PyUnicode_AsUTF8(pStr);
-                                                        if (s) {
-                                                            sItem.value = QString::fromUtf8(s);
-                                                            if (sItem.value.compare(u"true"_q, Qt::CaseInsensitive) == 0 || sItem.value == u"1"_q) {
-                                                                sItem.boolValue = true;
-                                                            } else if (sItem.value.compare(u"false"_q, Qt::CaseInsensitive) == 0 || sItem.value == u"0"_q) {
-                                                                sItem.boolValue = false;
-                                                            }
-                                                        }
-                                                        _Py_DECREF(pStr);
-                                                    }
-                                                    _Py_DECREF(pVal);
-                                                }
-                                                _Py_DECREF(pGetSetting);
-                                            }
-                                        }
-
-                                        info.settings.push_back(sItem);
-                                    }
-                                    _Py_DECREF(pSettingsList);
+                                const auto sArr = obj.value(u"settings"_q).toArray();
+                                for (const auto &sVal : sArr) {
+                                    if (!sVal.isObject()) continue;
+                                    const auto sObj = sVal.toObject();
+                                    PluginSettingItem s;
+                                    s.type = sObj.value(u"type"_q).toString(u"text"_q);
+                                    s.key = sObj.value(u"key"_q).toString();
+                                    s.text = sObj.value(u"text"_q).toString();
+                                    s.subtext = sObj.value(u"subtext"_q).toString();
+                                    s.value = sObj.value(u"value"_q).toString();
+                                    s.boolValue = sObj.value(u"boolValue"_q).toBool(false);
+                                    p.settings.push_back(s);
                                 }
-                                _Py_DECREF(pCreateSettings);
+                                list.push_back(p);
                             }
-
-                            list.push_back(info);
                         }
-                        _Py_DECREF(pPluginsDict);
                     }
-                    _Py_DECREF(pMgr);
+                    _Py_DECREF(pRes);
                 }
-                _Py_DECREF(pGetMgr);
+                _Py_DECREF(pGetJson);
             }
             _Py_DECREF(pModule);
         }
@@ -330,6 +295,15 @@ public:
             showToast(u"exteraGram"_q, u"Плагин успешно установлен!"_q, 3000);
         }
         return ok;
+    }
+
+    bool uninstallPlugin(const QString &pluginId) {
+        const QDir dir(_pluginsDir);
+        for (const auto &file : dir.entryList({ pluginId + ".*", pluginId }, QDir::Files)) {
+            QFile::remove(dir.filePath(file));
+        }
+        showToast(u"exteraGram"_q, u"Плагин удалён."_q, 3000);
+        return true;
     }
 
     void openPluginsFolder() {

@@ -903,7 +903,6 @@ const auto kPluginsMeta = BuildHelper({
 			u"или нажмите «Установить плагин» выше."_q));
 	} else {
 		for (const auto &p : plugins) {
-			builder.addDivider();
 			const auto titleText = u"📦 "_q + p.name + (p.version.isEmpty() ? QString() : (u" v"_q + p.version));
 			builder.addSubsectionTitle(rpl::single(QString(titleText)));
 
@@ -915,38 +914,77 @@ const auto kPluginsMeta = BuildHelper({
 				builder.addDividerText(rpl::single(QString(desc)));
 			}
 
-			// Render plugin settings
-			for (const auto &s : p.settings) {
-				if (s.type == u"header"_q) {
-					builder.addSubsectionTitle(rpl::single(u"🔹 "_q + QString(s.text)));
-				} else if (s.type == u"switch"_q) {
-					const auto checkId = u"plugin/"_q + p.id + u"/"_q + s.key;
-					if (const auto chk = builder.addCheckbox({
-						.id = checkId,
-						.title = rpl::single(QString(s.text)),
-						.checked = s.boolValue,
-					})) {
-						const auto pId = p.id;
-						const auto sKey = s.key;
-						chk->checkedChanges(
-						) | rpl::on_next([=](bool checked) {
-							CustomFeatures::PluginsEngine::GetInstance().saveSetting(
-								pId, sKey, checked ? u"true"_q : u"false"_q);
-						}, chk->lifetime());
-					}
-					if (!s.subtext.isEmpty()) {
-						builder.addDividerText(rpl::single(QString(s.subtext)));
-					}
-				} else if (s.type == u"input"_q) {
-					const auto displayVal = s.value.isEmpty() ? s.subtext : s.value;
-					builder.addDividerText(rpl::single(QString(s.text) + u": "_q + QString(displayVal)));
-				} else if (s.type == u"text"_q) {
-					const auto lineText = s.text + (s.subtext.isEmpty() ? QString() : (u" — "_q + s.subtext));
-					builder.addDividerText(rpl::single(QString(lineText)));
-				} else if (s.type == u"divider"_q) {
-					builder.addDivider();
-				}
-			}
+			builder.addButton({
+				.title = rpl::single(u"⚙️ Настройки: "_q + p.name),
+				.icon = &st::menuIconCustomize,
+				.onClick = [=] {
+					const auto latestList = CustomFeatures::PluginsEngine::GetInstance().getPlugins();
+					auto it = std::find_if(latestList.begin(), latestList.end(), [&](const CustomFeatures::PluginUiData &item) {
+						return item.id == p.id;
+					});
+					const auto cur = (it != latestList.end()) ? *it : p;
+
+					builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+						box->setTitle(rpl::single(cur.name));
+						const auto layout = box->verticalLayout();
+
+						if (!cur.description.isEmpty()) {
+							Ui::AddDividerText(layout, rpl::single(cur.description));
+						}
+
+						for (const auto &s : cur.settings) {
+							if (s.type == u"header"_q) {
+								Ui::AddSkip(layout);
+								Ui::AddSubsectionTitle(layout, rpl::single(s.text));
+							} else if (s.type == u"switch"_q) {
+								const auto chk = layout->add(object_ptr<Ui::Checkbox>(
+									box,
+									s.text,
+									s.boolValue,
+									st::defaultCheckbox));
+								const auto pId = cur.id;
+								const auto sKey = s.key;
+								chk->checkedChanges() | rpl::on_next([=](bool checked) {
+									CustomFeatures::PluginsEngine::GetInstance().saveSetting(
+										pId, sKey, checked ? u"true"_q : u"false"_q);
+								}, box->lifetime());
+
+								if (!s.subtext.isEmpty()) {
+									Ui::AddDividerText(layout, rpl::single(s.subtext));
+								}
+							} else if (s.type == u"input"_q) {
+								const auto displayVal = s.value.isEmpty() ? s.subtext : s.value;
+								Ui::AddDividerText(layout, rpl::single(s.text + u": "_q + displayVal));
+							} else if (s.type == u"text"_q) {
+								const auto lineText = s.text + (s.subtext.isEmpty() ? QString() : (u" — "_q + s.subtext));
+								Ui::AddDividerText(layout, rpl::single(lineText));
+							} else if (s.type == u"divider"_q) {
+								Ui::AddDivider(layout);
+							}
+						}
+
+						box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+					}));
+				},
+			});
+
+			builder.addButton({
+				.title = rpl::single(u"🗑️ Удалить плагин"_q),
+				.icon = &st::menuIconDelete,
+				.onClick = [=] {
+					builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+						box->setTitle(rpl::single(u"Удалить плагин"_q));
+						const auto layout = box->verticalLayout();
+						Ui::AddDividerText(layout, rpl::single(
+							u"Вы действительно хотите удалить плагин «"_q + p.name + u"»?"_q));
+						box->addButton(rpl::single(u"Удалить"_q), [=] {
+							box->closeBox();
+							CustomFeatures::PluginsEngine::GetInstance().uninstallPlugin(p.id);
+						}, st::attentionBoxButton);
+						box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+					}));
+				},
+			});
 
 			builder.addDivider();
 		}
