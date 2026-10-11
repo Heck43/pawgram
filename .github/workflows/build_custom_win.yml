@@ -218,17 +218,28 @@ jobs:
               Invoke-WebRequest -Uri $pyUrl -OutFile $pyZip
               Expand-Archive -Path $pyZip -DestinationPath "$artifact\extera_runtime" -Force
               Copy-Item -Force "$artifact\extera_runtime\python311.dll" "$artifact\python311.dll"
+              Copy-Item -Force "$artifact\extera_runtime\python311.zip" "$artifact\python311.zip"
+              Expand-Archive -Path "$artifact\extera_runtime\python311.zip" -DestinationPath "$artifact\extera_runtime\Lib" -Force
+              New-Item -ItemType Directory -Force -Path "$artifact\extera_runtime\DLLs"
               Remove-Item -Force $pyZip
-              Write-Host "[✓] Python 3.11 runtime bundled!"
+              Write-Host "[✓] Python 3.11 runtime bundled with Lib stdlib!"
           } catch {
               Write-Warning "Failed to download python runtime: $_"
           }
 
           # Bundle extera_sdk
-          $sdkSource = "$env:GITHUB_WORKSPACE\Telegram\SourceFiles\custom_features\extera_sdk"
+          $sdkSource = "$env:TBUILD\TelegramCustom\Telegram\SourceFiles\custom_features\extera_sdk"
+          if (-not (Test-Path $sdkSource)) {
+              $sdkSource = "$env:GITHUB_WORKSPACE\custom_src\Telegram\SourceFiles\custom_features\extera_sdk"
+          }
+          if (-not (Test-Path $sdkSource)) {
+              $sdkSource = "$env:GITHUB_WORKSPACE\Telegram\SourceFiles\custom_features\extera_sdk"
+          }
           if (Test-Path $sdkSource) {
               Copy-Item -Recurse -Force $sdkSource "$artifact\extera_sdk"
-              Write-Host "[✓] extera_sdk bundled!"
+              Write-Host "[✓] extera_sdk bundled from $sdkSource!"
+          } else {
+              Write-Warning "[!] extera_sdk not found at $sdkSource!"
           }
 
           # Create default extera_plugins directory

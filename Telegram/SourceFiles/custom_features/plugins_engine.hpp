@@ -62,8 +62,16 @@ public:
             return false;
         }
 
-        // Configure sys.path
-        QString pyPath = _runtimeDir + "/Lib;" + _runtimeDir + "/DLLs;" + _sdkDir;
+        // Configure sys.path with standard library archive, runtime, and SDK
+        QString pyPath =
+            _runtimeDir + "/python311.zip;" +
+            _runtimeDir + ";" +
+            appDir + "/python311.zip;" +
+            appDir + ";" +
+            _runtimeDir + "/Lib;" +
+            _runtimeDir + "/DLLs;" +
+            _sdkDir + ";" +
+            _pluginsDir;
         std::wstring wPyPath = pyPath.toStdWString();
         if (_Py_SetPath) {
             _Py_SetPath(wPyPath.c_str());
