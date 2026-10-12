@@ -19,6 +19,7 @@ class InAppNotificationsPlugin(BasePlugin):
     def on_plugin_load(self):
         super().on_plugin_load()
         self.add_on_send_message_hook()
+        self.add_on_incoming_message_hook()
         client_utils.show_bulletin(
             title="In-App Notifications",
             subtitle="Плагин успешно активирован!",
@@ -197,3 +198,23 @@ class InAppNotificationsPlugin(BasePlugin):
             client_utils.show_bulletin("Отправлено", text, min(duration, 2.5))
 
         return HookResult(strategy=HookStrategy.PASS)
+
+    def on_incoming_message_hook(self, title: str, text: str, peer_id: int) -> bool:
+        """Обработка реальных входящих сообщений из чатов."""
+        try:
+            duration = float(self.get_setting("duration", "4.0"))
+        except (ValueError, TypeError):
+            duration = 4.0
+
+        play_sound = self.get_setting("sound", False)
+        if play_sound:
+            try:
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            except Exception:
+                pass
+
+        # Показываем красивый нативный буллетин-капсулу поверх окна Telegram
+        client_utils.show_bulletin(title, text, duration)
+        self.logger.info(f"Incoming message bulletin: [{title}] {text}")
+        return True
+

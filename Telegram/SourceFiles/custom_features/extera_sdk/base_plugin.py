@@ -91,6 +91,7 @@ class BasePlugin:
         self.logger = logging.getLogger(f"Plugin[{self.id}]")
         self.hooks: List[Any] = []
         self._send_message_hook_registered = False
+        self._incoming_message_hook_registered = False
         self._update_hook_registered = False
         self._settings_path = settings_path
         self._settings: dict[str, Any] = {}
@@ -123,6 +124,9 @@ class BasePlugin:
 
     def add_on_send_message_hook(self):
         self._send_message_hook_registered = True
+
+    def add_on_incoming_message_hook(self):
+        self._incoming_message_hook_registered = True
 
     def add_on_update_hook(self):
         self._update_hook_registered = True
@@ -157,6 +161,10 @@ class BasePlugin:
     def on_send_message_hook(self, account: int, params: Any) -> HookResult:
         """Called before an outgoing message is sent. Return HookResult."""
         return HookResult()
+
+    def on_incoming_message_hook(self, title: str, text: str, peer_id: int) -> bool:
+        """Called on incoming messages/notifications. Return True if handled (suppresses default OS notification)."""
+        return False
 
     def on_update_hook(self, account: int, update: Any) -> HookResult:
         """Called on incoming updates."""

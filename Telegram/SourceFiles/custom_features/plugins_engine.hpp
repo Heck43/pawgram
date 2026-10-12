@@ -119,6 +119,7 @@ public:
         void *pLoaderModule = _PyImport_ImportModule("loader");
         if (pLoaderModule) {
             _hookFunc = _PyObject_GetAttrString(pLoaderModule, "hook_send_message");
+            _hookIncomingFunc = _PyObject_GetAttrString(pLoaderModule, "hook_incoming_message");
             _Py_DECREF(pLoaderModule);
         }
 
@@ -175,6 +176,43 @@ public:
         }
 
         return !keepSending; // return true if cancelled
+    }
+
+    bool dispatchIncomingMessage(const QString &title, const QString &text, uint64 peerId) {
+        if (!_initialized || !_hookIncomingFunc) {
+            return false;
+        }
+
+        void *gstate = nullptr;
+        if (_PyGILState_Ensure) {
+            gstate = _PyGILState_Ensure();
+        }
+
+        bool handled = false;
+        std::string sTitle = title.toStdString();
+        std::string sText = text.toStdString();
+        std::string sPeer = std::to_string(peerId);
+
+        void *pArgs = _PyTuple_Pack(3,
+            _PyUnicode_FromString(sTitle.c_str()),
+            _PyUnicode_FromString(sText.c_str()),
+            _PyUnicode_FromString(sPeer.c_str()));
+
+        void *pResult = _PyObject_CallObject(_hookIncomingFunc, pArgs);
+        _Py_DECREF(pArgs);
+
+        if (pResult) {
+            if (_PyObject_IsTrue && _PyObject_IsTrue(pResult)) {
+                handled = true;
+            }
+            _Py_DECREF(pResult);
+        }
+
+        if (_PyGILState_Release && gstate) {
+            _PyGILState_Release(gstate);
+        }
+
+        return handled;
     }
 
     std::vector<PluginUiData> getPlugins() {
@@ -394,6 +432,7 @@ private:
     QString _runtimeDir;
 
     void *_hookFunc = nullptr;
+    void *_hookIncomingFunc = nullptr;
     void *_mainThreadState = nullptr;
 
     // Python C-API Function Pointers

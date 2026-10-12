@@ -40,6 +40,7 @@ class PluginManager:
         self.plugins: Dict[str, BasePlugin] = {}
         self.plugin_modules: Dict[str, Any] = {}
         self.send_message_subscribers: List[BasePlugin] = []
+        self.incoming_message_subscribers: List[BasePlugin] = []
 
     def load_all_plugins(self):
         logger.info(f"Scanning plugins from {self.plugins_dir}...")
@@ -132,6 +133,8 @@ class PluginManager:
             self.plugin_modules[plugin_id] = module
             if instance._send_message_hook_registered:
                 self.send_message_subscribers.append(instance)
+            if instance._incoming_message_hook_registered:
+                self.incoming_message_subscribers.append(instance)
 
             logger.info(f"Loaded plugin: [{plugin_id}] '{plugin_name}' (v{plugin_version}) from {filename}")
 
@@ -158,6 +161,17 @@ class PluginManager:
                 logger.exception(f"Error in plugin [{plugin.id}] on_send_message_hook: {e}")
 
         return current_text, is_cancelled
+
+    def dispatch_incoming_message(self, title: str, text: str, peer_id: int) -> bool:
+        handled = False
+        for plugin in self.incoming_message_subscribers:
+            try:
+                res = plugin.on_incoming_message_hook(title=title, text=text, peer_id=peer_id)
+                if res:
+                    handled = True
+            except Exception as e:
+                logger.exception(f"Error in plugin [{plugin.id}] on_incoming_message_hook: {e}")
+        return handled
 
 _manager: Optional[PluginManager] = None
 
@@ -187,6 +201,12 @@ def hook_send_message(text: str) -> str:
     if cancelled:
         return "__CANCEL__"
     return final_text
+
+def hook_incoming_message(title: str, text: str, peer_id: int) -> bool:
+    global _manager
+    if not _manager:
+        return False
+    return _manager.dispatch_incoming_message(title, text, peer_id)
 
 def get_plugins_ui_json() -> str:
     """Returns JSON array of all plugins and their settings for the C++ settings UI."""

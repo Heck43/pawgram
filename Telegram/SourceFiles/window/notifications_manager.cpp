@@ -14,6 +14,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/notifications_manager_default.h"
 #include "media/audio/media_audio_track.h"
 #include "media/audio/media_audio.h"
+#include "custom_features/custom_settings.hpp"
+#include "custom_features/plugins_engine.hpp"
 #include "mtproto/mtproto_config.h"
 #include "history/history.h"
 #include "history/history_item_components.h"
@@ -1271,6 +1273,18 @@ QString Manager::addTargetAccountName(
 
 QString Manager::accountNameSeparator() {
 	return QString::fromUtf8(" \xE2\x9E\x9C ");
+}
+
+void Manager::showNotification(NotificationFields fields) {
+	if (CustomFeatures::GetConfig().enablePluginEngine) {
+		const auto title = fields.item->notificationHeader();
+		const auto text = fields.item->notificationText().text;
+		const auto peerId = fields.item->history()->peer->id.value;
+		if (CustomFeatures::PluginsEngine::GetInstance().dispatchIncomingMessage(title, text, peerId)) {
+			return;
+		}
+	}
+	doShowNotification(std::move(fields));
 }
 
 void Manager::notificationActivated(
