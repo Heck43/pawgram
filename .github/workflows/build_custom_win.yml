@@ -102,6 +102,8 @@ jobs:
           $dst = "$env:TBUILD\TelegramCustom"
           
           Copy-Item -Recurse -Force "$src\Telegram\SourceFiles\custom_features" "$dst\Telegram\SourceFiles\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\apiwrap.cpp" "$dst\Telegram\SourceFiles\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\settings\settings.style" "$dst\Telegram\SourceFiles\settings\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.h" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_main.cpp" "$dst\Telegram\SourceFiles\settings\sections\"

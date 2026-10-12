@@ -61,6 +61,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_domain.h"
 #include "main/main_session.h"
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/plugins_engine.hpp"
 #include "custom_features/session_wipe.hpp"
 #include "custom_features/ws_proxy_manager.hpp"
 #include "media/view/media_view_overlay_widget.h"
@@ -214,6 +215,10 @@ Application::Application()
 
 	if (CustomFeatures::GetConfig().enableWsProxy) {
 		CustomFeatures::WsProxyManager::Instance().startProxy();
+	}
+
+	if (CustomFeatures::GetConfig().enablePluginEngine) {
+		CustomFeatures::PluginsEngine::GetInstance().init();
 	}
 
 	// Clean any leftover official tupdates folder so vanilla update can never be applied
