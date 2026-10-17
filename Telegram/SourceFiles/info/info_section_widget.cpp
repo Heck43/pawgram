@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_memento.h"
 #include "info/info_controller.h"
 #include "styles/style_layers.h"
+#include "custom_features/pawgram_theme.hpp"
 
 namespace Info {
 
@@ -104,7 +105,19 @@ void SectionWidget::showAnimatedHook(
 void SectionWidget::paintEvent(QPaintEvent *e) {
 	Window::SectionWidget::paintEvent(e);
 	if (!animatingShow()) {
-		QPainter(this).fillRect(e->rect(), st::windowBg);
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+			auto p = QPainter(this);
+			p.fillRect(e->rect(), Pawgram::Theme::Palette::SolidGlassBgDark);
+			const auto borderWidth = style::ConvertScale(1);
+			p.fillRect(
+				0,
+				0,
+				borderWidth,
+				height(),
+				Pawgram::Theme::Palette::GlassBorder);
+		} else {
+			QPainter(this).fillRect(e->rect(), st::windowBg);
+		}
 	}
 }
 

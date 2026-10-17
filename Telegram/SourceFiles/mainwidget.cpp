@@ -50,6 +50,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "chat_helpers/tabbed_selector.h" // TabbedSelector::refreshStickers
 #include "chat_helpers/message_field.h"
 #include "info/info_memento.h"
+#include "custom_features/pawgram_theme.hpp"
 #include "apiwrap.h"
 #include "dialogs/dialogs_widget.h"
 #include "history/history_widget.h"
@@ -2443,16 +2444,10 @@ void MainWidget::updateControlsGeometry() {
 							thread,
 							params);
 					}
-				} else if (Core::App().settings().thirdSectionInfoEnabled()) {
+				} else if (Core::App().settings().thirdSectionInfoEnabled()
+					|| Pawgram::Theme::IsPawgramAestheticEnabled()) {
 					_controller->showSection(
-						(thread->asTopic()
-							? std::make_shared<Info::Memento>(
-								thread->asTopic())
-							: thread->asSublist()
-							? std::make_shared<Info::Memento>(
-								thread->asSublist())
-							: Info::Memento::Default(
-								thread->asHistory()->peer)),
+						thirdSectionForCurrentMainSection(active),
 						params.withThirdColumn());
 				}
 			}
@@ -2713,11 +2708,23 @@ auto MainWidget::thirdSectionForCurrentMainSection(
 	if (_thirdSectionFromStack) {
 		return std::move(_thirdSectionFromStack);
 	} else if (const auto topic = key.topic()) {
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+			return std::make_shared<Info::Memento>(
+				topic,
+				Info::Section(Info::Section::Type::Members));
+		}
 		return std::make_shared<Info::Memento>(topic);
 	} else if (const auto sublist = key.sublist()
 		; sublist && sublist->parentChat()) {
 		return std::make_shared<Info::Memento>(sublist);
 	} else if (const auto peer = key.peer()) {
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()
+			&& (peer->isChat()
+				|| (peer->isChannel() && peer->asChannel()->canViewMembers()))) {
+			return std::make_shared<Info::Memento>(
+				peer,
+				Info::Section(Info::Section::Type::Members));
+		}
 		return std::make_shared<Info::Memento>(
 			peer,
 			Info::Memento::DefaultSection(peer));
@@ -2787,7 +2794,8 @@ void MainWidget::updateThirdColumnToCurrentChat(
 				updateControlsGeometry();
 			}
 		} else if (isThreeColumn()
-			&& settings.thirdSectionInfoEnabled()) {
+			&& (settings.thirdSectionInfoEnabled()
+				|| Pawgram::Theme::IsPawgramAestheticEnabled())) {
 			switchInfoFast();
 		}
 	}

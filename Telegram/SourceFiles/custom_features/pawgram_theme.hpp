@@ -101,3 +101,12 @@ inline bool IsPawgramAestheticEnabled() {
 }
 
 } // namespace Pawgram::Theme
+
+namespace Info {
+class SectionWidget;
+} // namespace Info
+
+namespace Pawgram {
+// Правая панель участников / инфо-бар Discord-like layout
+using MembersBar = Info::SectionWidget;
+} // namespace Pawgram

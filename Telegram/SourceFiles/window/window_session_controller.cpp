@@ -2617,7 +2617,8 @@ auto SessionController::computeColumnLayout() const -> ColumnLayout {
 			return true;
 		}
 		if (!Core::App().settings().tabbedSelectorSectionEnabled()
-			&& !Core::App().settings().thirdSectionInfoEnabled()) {
+			&& !Core::App().settings().thirdSectionInfoEnabled()
+			&& !Pawgram::Theme::IsPawgramAestheticEnabled()) {
 			return true;
 		}
 		return false;
