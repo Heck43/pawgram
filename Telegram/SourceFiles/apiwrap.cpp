@@ -48,8 +48,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_changes.h"
 #include "data/data_drafts.h"
 #include "data/data_media_types.h"
-#include "custom_features/custom_settings.hpp"
-#include "custom_features/plugins_engine.hpp"
 #include "data/data_web_page.h"
 #include "data/data_folder.h"
 #include "data/data_forum_topic.h"
@@ -4601,13 +4599,6 @@ void ApiWrap::sendMessage(
 	const auto history = message.action.history;
 	const auto peer = history->peer;
 	auto &textWithTags = message.textWithTags;
-
-	if (CustomFeatures::GetConfig().enablePluginEngine) {
-		CustomFeatures::PluginsEngine::GetInstance().init();
-		if (CustomFeatures::PluginsEngine::GetInstance().dispatchSendMessage(textWithTags.text)) {
-			return;
-		}
-	}
 
 	auto action = message.action;
 	action.generateLocal = true;

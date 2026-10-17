@@ -58,14 +58,9 @@ struct ClientConfig {
     QString wsProxySecret;                 // 32-hex MTProto секрет
     bool wsProxyAutoConfigTg = true;       // Автоматически настраивать прокси в Telegram
 
-    // 8. Система плагинов (Python Plugin Engine)
-    bool enablePluginEngine = true;        // Включить систему плагинов
-
     void load() {
         const auto path = getSettingsFilePath();
         QSettings s(path, QSettings::IniFormat);
-
-        enablePluginEngine = s.value("enablePluginEngine", enablePluginEngine).toBool();
 
         cleanTrackingUrls = s.value("cleanTrackingUrls", cleanTrackingUrls).toBool();
         directExternalLinks = s.value("directExternalLinks", directExternalLinks).toBool();
@@ -150,7 +145,6 @@ struct ClientConfig {
         s.setValue("wsProxyPort", wsProxyPort);
         s.setValue("wsProxySecret", wsProxySecret);
         s.setValue("wsProxyAutoConfigTg", wsProxyAutoConfigTg);
-        s.setValue("enablePluginEngine", enablePluginEngine);
         s.sync();
     }
 

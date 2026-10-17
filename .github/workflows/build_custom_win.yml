@@ -102,8 +102,6 @@ jobs:
           $dst = "$env:TBUILD\TelegramCustom"
           
           Copy-Item -Recurse -Force "$src\Telegram\SourceFiles\custom_features" "$dst\Telegram\SourceFiles\"
-          Copy-Item -Force "$src\Telegram\SourceFiles\apiwrap.cpp" "$dst\Telegram\SourceFiles\"
-          Copy-Item -Force "$src\Telegram\SourceFiles\settings\settings.style" "$dst\Telegram\SourceFiles\settings\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.h" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_main.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
@@ -125,8 +123,6 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\windows_dlls.h" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\window_controller.cpp" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\main_window.cpp" "$dst\Telegram\SourceFiles\window\"
-          Copy-Item -Force "$src\Telegram\SourceFiles\window\notifications_manager.h" "$dst\Telegram\SourceFiles\window\"
-          Copy-Item -Force "$src\Telegram\SourceFiles\window\notifications_manager.cpp" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\api\api_attached_stickers.h" "$dst\Telegram\SourceFiles\api\"
           Copy-Item -Force "$src\Telegram\SourceFiles\api\api_attached_stickers.cpp" "$dst\Telegram\SourceFiles\api\"
           Copy-Item -Force "$src\Telegram\SourceFiles\boxes\stickers_box.h" "$dst\Telegram\SourceFiles\boxes\"
@@ -213,56 +209,7 @@ jobs:
           if (Test-Path "$out\Updater.exe") {
               Copy-Item -Force "$out\Updater.exe" "$artifact\"
           }
-
-          # Bundle Python 3.11 embeddable runtime
-          $pyUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
-          $pyZip = "$artifact\py_embed.zip"
-          Write-Host "Downloading Python 3.11 embeddable runtime from $pyUrl..."
-          try {
-              Invoke-WebRequest -Uri $pyUrl -OutFile $pyZip
-              Expand-Archive -Path $pyZip -DestinationPath "$artifact\extera_runtime" -Force
-              Copy-Item -Force "$artifact\extera_runtime\python311.dll" "$artifact\python311.dll"
-              Copy-Item -Force "$artifact\extera_runtime\python311.zip" "$artifact\python311.zip"
-              Expand-Archive -Path "$artifact\extera_runtime\python311.zip" -DestinationPath "$artifact\extera_runtime\Lib" -Force
-              New-Item -ItemType Directory -Force -Path "$artifact\extera_runtime\DLLs"
-              Copy-Item -Force "$artifact\extera_runtime\*.pyd" "$artifact\extera_runtime\DLLs\"
-              Copy-Item -Force "$artifact\extera_runtime\*.dll" "$artifact\extera_runtime\DLLs\"
-              Remove-Item -Force $pyZip
-              Write-Host "[✓] Python 3.11 runtime bundled with Lib stdlib and DLLs!"
-          } catch {
-              Write-Warning "Failed to download python runtime: $_"
-          }
-
-          # Bundle extera_sdk
-          $sdkSource = "$env:TBUILD\TelegramCustom\Telegram\SourceFiles\custom_features\extera_sdk"
-          if (-not (Test-Path $sdkSource)) {
-              $sdkSource = "$env:GITHUB_WORKSPACE\custom_src\Telegram\SourceFiles\custom_features\extera_sdk"
-          }
-          if (-not (Test-Path $sdkSource)) {
-              $sdkSource = "$env:GITHUB_WORKSPACE\Telegram\SourceFiles\custom_features\extera_sdk"
-          }
-          if (Test-Path $sdkSource) {
-              Copy-Item -Recurse -Force $sdkSource "$artifact\extera_sdk"
-              Write-Host "[✓] extera_sdk bundled from $sdkSource!"
-          } else {
-              Write-Warning "[!] extera_sdk not found at $sdkSource!"
-          }
-
-          # Bundle default extera_plugins directory with pre-installed plugins
-          $pluginsSource = "$env:TBUILD\TelegramCustom\Telegram\SourceFiles\custom_features\extera_plugins"
-          if (-not (Test-Path $pluginsSource)) {
-              $pluginsSource = "$env:GITHUB_WORKSPACE\custom_src\Telegram\SourceFiles\custom_features\extera_plugins"
-          }
-          if (-not (Test-Path $pluginsSource)) {
-              $pluginsSource = "$env:GITHUB_WORKSPACE\Telegram\SourceFiles\custom_features\extera_plugins"
-          }
-          New-Item -ItemType Directory -Force -Path "$artifact\extera_plugins"
-          if (Test-Path $pluginsSource) {
-              Copy-Item -Recurse -Force "$pluginsSource\*" "$artifact\extera_plugins\"
-              Write-Host "[✓] extera_plugins bundled with pre-installed plugins!"
-          }
-
-          Write-Host "[✓] Artifact prepared with Telegram.exe, tg-ws-proxy.exe, Python runtime, and extera_sdk!"
+          Write-Host "[✓] Artifact prepared with Telegram.exe and bundled tg-ws-proxy.exe!"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

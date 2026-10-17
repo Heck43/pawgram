@@ -277,7 +277,9 @@ public:
 	explicit Manager(not_null<System*> system) : _system(system) {
 	}
 
-	void showNotification(NotificationFields fields);
+	void showNotification(NotificationFields fields) {
+		doShowNotification(std::move(fields));
+	}
 	void updateAll() {
 		doUpdateAll();
 	}
