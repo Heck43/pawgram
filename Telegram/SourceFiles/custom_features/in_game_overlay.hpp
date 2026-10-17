@@ -421,9 +421,11 @@ public:
             }
         }
 
-        if (!_activeHistory && firstHistory) {
+        _chatListLayout->addStretch();
+
+        if (firstHistory && (!_activeHistory || !_activeHistory->peer)) {
             selectChat(firstHistory);
-        } else if (_activeHistory) {
+        } else if (_activeHistory && _activeHistory->peer) {
             selectChat(_activeHistory);
         }
     }
@@ -598,7 +600,14 @@ public:
 
         updateHeaderStatus();
 
-        if (_activeHistory) {
+        if (_activeHistory && _activeHistory->peer) {
+            // Убеждаемся, что сессия активной истории совпадает с текущей активной сессией клиента
+            if (&_activeHistory->session() != session) {
+                _activeHistory = nullptr;
+                reloadRealData();
+                return;
+            }
+
             int count = 0;
             for (const auto &block : _activeHistory->blocks) {
                 count += block->messages.size();
@@ -672,6 +681,18 @@ protected:
             move(e->globalPos() - _dragPos);
             e->accept();
         }
+    }
+
+    void showEvent(QShowEvent *e) override {
+        QWidget::showEvent(e);
+        _autoRefreshTimer.start(2500);
+    }
+
+    void hideEvent(QHideEvent *e) override {
+        _autoRefreshTimer.stop();
+        _mediaUpdateTimer.stop();
+        _dialogsUpdateTimer.stop();
+        QWidget::hideEvent(e);
     }
 
     void keyPressEvent(QKeyEvent *e) override {
@@ -1044,6 +1065,12 @@ public:
 
     void triggerOverlay() {
         if (!GetConfig().enableInGameOverlay) return;
+        const auto now = GetTickCount64();
+        if (now - _lastOverlayToggleTick < 300) {
+            return;
+        }
+        _lastOverlayToggleTick = now;
+
         if (!_overlayWidget) {
             _overlayWidget = new InGameOverlayWidget();
         }
@@ -1148,6 +1175,12 @@ private:
             UnhookWindowsHookEx(_hook);
             _hook = nullptr;
         }
+        if (_hwnd) {
+            UnregisterHotKey(_hwnd, 0x5447);
+            UnregisterHotKey(_hwnd, 0x5448);
+            UnregisterHotKey(_hwnd, 0x5449);
+            UnregisterHotKey(_hwnd, 0x544A);
+        }
     }
 
     static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -1158,27 +1191,32 @@ private:
             const bool alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
             bool triggered = false;
-            // Shift + ~ (VK_OEM_3 = 0xC0)
-            if (shift && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
+            // Shift + ~ (исключаем Ctrl и Alt, чтобы не конфликтовать с шорткатами IDE)
+            if (shift && !ctrl && !alt && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
                 triggered = true;
             }
-            // Shift + F11
-            else if (shift && p->vkCode == VK_F11) {
+            // Shift + F11 (без Ctrl и Alt)
+            else if (shift && !ctrl && !alt && p->vkCode == VK_F11) {
                 triggered = true;
             }
-            // Ctrl + Shift + O
-            else if (ctrl && shift && p->vkCode == 'O') {
+            // Ctrl + Shift + O (без Alt)
+            else if (ctrl && shift && !alt && p->vkCode == 'O') {
                 triggered = true;
             }
-            // Alt + ~
-            else if (alt && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
+            // Alt + ~ (без Ctrl и Shift)
+            else if (alt && !ctrl && !shift && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
                 triggered = true;
             }
 
             if (triggered && GetConfig().enableInGameOverlay) {
-                crl::on_main([] {
-                    Instance().triggerOverlay();
-                });
+                const auto now = GetTickCount64();
+                static uint64_t lastTriggerTick = 0;
+                if (now - lastTriggerTick >= 350) {
+                    lastTriggerTick = now;
+                    crl::on_main([] {
+                        Instance().triggerOverlay();
+                    });
+                }
             }
         }
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -1187,6 +1225,7 @@ private:
     HWND _hwnd = nullptr;
     HHOOK _hook = nullptr;
     InGameOverlayWidget *_overlayWidget = nullptr;
+    uint64_t _lastOverlayToggleTick = 0;
 };
 
 } // namespace CustomFeatures

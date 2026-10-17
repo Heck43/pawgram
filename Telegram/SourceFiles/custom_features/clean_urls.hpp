@@ -42,7 +42,13 @@ inline QString CleanTrackingParameters(const QString &rawUrl) {
     QUrlQuery query(url.query());
     bool modified = false;
 
+    const QString host = url.host().toLower();
+    const bool isYouTube = host.contains("youtube.com") || host.contains("youtu.be");
+
     for (const auto &param : kTrackingParams) {
+        if (param == "feature" && !isYouTube) {
+            continue;
+        }
         if (query.hasQueryItem(param)) {
             query.removeQueryItem(param);
             modified = true;

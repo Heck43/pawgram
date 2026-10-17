@@ -80,6 +80,11 @@ jobs:
           restore-keys: |
             libraries-v709-
 
+      - name: Clone Official TDesktop with Submodules
+        run: |
+          if exist "%TBUILD%\TelegramCustom" rmdir /s /q "%TBUILD%\TelegramCustom"
+          git clone --depth 1 --branch v7.0.9 --recurse-submodules https://github.com/telegramdesktop/tdesktop.git %TBUILD%\TelegramCustom
+
       - name: Restore Build Cache
         id: cache-build
         uses: actions/cache@v4
@@ -89,11 +94,6 @@ jobs:
           key: build-cache-${{ github.sha }}
           restore-keys: |
             build-cache-
-
-      - name: Clone Official TDesktop with Submodules
-        run: |
-          if exist "%TBUILD%\TelegramCustom" rmdir /s /q "%TBUILD%\TelegramCustom"
-          git clone --depth 1 --branch v7.0.9 --recurse-submodules https://github.com/telegramdesktop/tdesktop.git %TBUILD%\TelegramCustom
 
       - name: Apply Custom Modifications
         shell: pwsh
@@ -105,6 +105,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.h" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_main.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\settings\settings.style" "$dst\Telegram\SourceFiles\settings\"
           Copy-Item -Force "$src\Telegram\SourceFiles\chat_helpers\stickers_list_widget.cpp" "$dst\Telegram\SourceFiles\chat_helpers\"
           Copy-Item -Force "$src\Telegram\SourceFiles\core\click_handler_types.cpp" "$dst\Telegram\SourceFiles\core\"
           Copy-Item -Force "$src\Telegram\SourceFiles\core\file_utilities.cpp" "$dst\Telegram\SourceFiles\core\"

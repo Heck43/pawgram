@@ -30,6 +30,12 @@ public:
         initGameDatabase();
     }
 
+    ~GameActivityDetector() {
+        stopMonitoring();
+        delete _timer;
+        _timer = nullptr;
+    }
+
     void startMonitoring(std::function<void(const DetectedGame&, bool isPlaying)> onStatusChanged) {
         _callback = onStatusChanged;
         if (!_timer) {
@@ -37,12 +43,14 @@ public:
             QObject::connect(_timer, &QTimer::timeout, [this]() {
                 checkRunningGames();
             });
+        }
+        if (!_timer->isActive()) {
             _timer->start(10000); // Проверка каждые 10 секунд
         }
     }
 
     void stopMonitoring() {
-        if (_timer) {
+        if (_timer && _timer->isActive()) {
             _timer->stop();
         }
     }
