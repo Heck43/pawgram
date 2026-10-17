@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/unread_badge_paint.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_widgets.h"
+#include "custom_features/pawgram_icons.hpp"
 
 #include <QtWidgets/QApplication>
 
@@ -833,17 +834,31 @@ void TopPeersStrip::paintUserpic(
 		const auto skip = st::dialogsOnlineBadgeSkip;
 		const auto shrink = (onlineSize / 2) * (1. - online);
 
-		auto pen = QPen(Qt::transparent);
-		pen.setWidthF(stroke * online);
-		q.setPen(pen);
-		q.setBrush(st::dialogsOnlineBadgeFg);
-		q.drawEllipse(QRectF(
-			size - skip.x() - onlineSize,
-			size - skip.y() - onlineSize,
-			onlineSize,
-			onlineSize
-		).marginsRemoved({ shrink, shrink, shrink, shrink }));
-		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+			q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+			const auto targetRect = QRectF(
+				size - skip.x() - onlineSize,
+				size - skip.y() - onlineSize,
+				onlineSize,
+				onlineSize
+			).marginsRemoved({ shrink, shrink, shrink, shrink });
+			Pawgram::Icons::DrawOnlinePaw(
+				q,
+				targetRect,
+				Pawgram::Theme::Palette::Mint);
+		} else {
+			auto pen = QPen(Qt::transparent);
+			pen.setWidthF(stroke * online);
+			q.setPen(pen);
+			q.setBrush(st::dialogsOnlineBadgeFg);
+			q.drawEllipse(QRectF(
+				size - skip.x() - onlineSize,
+				size - skip.y() - onlineSize,
+				onlineSize,
+				onlineSize
+			).marginsRemoved({ shrink, shrink, shrink, shrink }));
+			q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		}
 	}
 
 	if (entry.badge || entry.unread) {

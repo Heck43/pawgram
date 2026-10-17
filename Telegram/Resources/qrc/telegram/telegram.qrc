@@ -48,6 +48,9 @@
     <file alias="dice/dice4.svg">../../art/dice/dice4.svg</file>
     <file alias="dice/dice5.svg">../../art/dice/dice5.svg</file>
     <file alias="dice/dice6.svg">../../art/dice/dice6.svg</file>
+    <file alias="pawgram/paw_online.svg">../../art/pawgram/paw_online.svg</file>
+    <file alias="pawgram/status_heart.svg">../../art/pawgram/status_heart.svg</file>
+    <file alias="pawgram/search_ears.svg">../../art/pawgram/search_ears.svg</file>
   </qresource>
   <qresource prefix="/icons">
     <file alias="calls/hands.lottie">../../icons/calls/hands.lottie</file>

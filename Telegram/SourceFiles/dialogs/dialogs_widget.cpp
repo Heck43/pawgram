@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/ripple_animation.h"
 #include "ui/chat/requests_bar.h"
 #include "ui/chat/group_call_bar.h"
+#include "custom_features/pawgram_icons.hpp"
 #include "ui/chat/more_chats_bar.h"
 #include "ui/controls/download_bar.h"
 #include "ui/controls/jump_down_button.h"
@@ -107,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QTextBlock>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QApplication>
 
 namespace Dialogs {
 namespace {
@@ -133,6 +135,42 @@ public:
 	QAccessible::Role accessibilityRole() override {
 		return QAccessible::NoRole;
 	}
+};
+
+class SearchEarsFilter final : public QObject {
+public:
+	explicit SearchEarsFilter(Ui::InputField *search)
+	: QObject(search)
+	, _search(search) {
+	}
+
+protected:
+	bool eventFilter(QObject *watched, QEvent *event) override {
+		if (watched == _search && event->type() == QEvent::Paint) {
+			_search->removeEventFilter(this);
+			QApplication::sendEvent(_search, event);
+			_search->installEventFilter(this);
+
+			if (Pawgram::Theme::IsPawgramAestheticEnabled()
+				&& _search->getLastText().isEmpty()) {
+				auto p = QPainter(_search);
+				const auto iconSize = style::ConvertScale(18);
+				const auto iconY = (_search->height() - iconSize) / 2;
+				const auto iconX = style::RightToLeft()
+					? style::ConvertScale(10)
+					: (_search->width() - iconSize - style::ConvertScale(10));
+				Pawgram::Icons::DrawSearchEars(
+					p,
+					QRectF(iconX, iconY, iconSize, iconSize),
+					Pawgram::Theme::Palette::LavenderDark);
+			}
+			return true;
+		}
+		return QObject::eventFilter(watched, event);
+	}
+
+private:
+	Ui::InputField *_search = nullptr;
 };
 
 [[nodiscard]] bool RedirectTextToSearch(const QString &text) {
@@ -618,8 +656,10 @@ Widget::Widget(
 		_search->setFocusFast();
 	}, lifetime());
 
+	_search->installEventFilter(new SearchEarsFilter(_search));
 	_search->changes(
 	) | rpl::on_next([=] {
+		_search->update();
 		crl::on_main(this, [=] { applySearchUpdate(); });
 	}, _search->lifetime());
 
@@ -697,6 +737,7 @@ Widget::Widget(
 			controller->closeForum();
 		}
 	});
+
 
 	setAcceptDrops(true);
 

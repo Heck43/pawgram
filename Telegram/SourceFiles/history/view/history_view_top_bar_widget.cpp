@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_dialogs.h"
 #include "styles/style_chat.h"
 #include "styles/style_info.h"
+#include "custom_features/pawgram_icons.hpp"
 
 #include <QtGui/QWindow>
 
@@ -790,6 +791,25 @@ void TopBarWidget::paintStatus(
 			top,
 			availableWidth,
 			outerWidth);
+		if (Pawgram::Theme::IsPawgramAestheticEnabled() && _titlePeerTextOnline) {
+			const auto textWidth = _titlePeerText.maxWidth();
+			if (textWidth > 0) {
+				const auto heartSize = style::ConvertScale(12);
+				const auto heartY = top + (st::dialogsTextFont->height - heartSize) / 2;
+				const auto spacing = style::ConvertScale(4);
+				const auto heartX = style::RightToLeft()
+					? (outerWidth - left - textWidth - spacing - heartSize)
+					: (left + textWidth + spacing);
+				const auto minX = style::RightToLeft() ? (outerWidth - left - availableWidth) : left;
+				const auto maxX = style::RightToLeft() ? (outerWidth - left) : (left + availableWidth);
+				if (heartX >= minX && heartX + heartSize <= maxX) {
+					Pawgram::Icons::DrawStatusHeart(
+						p,
+						QRectF(heartX, heartY, heartSize, heartSize),
+						Pawgram::Theme::Palette::RoseDark);
+				}
+			}
+		}
 	}
 }
 

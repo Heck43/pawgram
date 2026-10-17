@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "base/unixtime.h"
 #include "styles/style_dialogs.h"
+#include "custom_features/pawgram_icons.hpp"
 
 namespace Dialogs {
 namespace {
@@ -623,6 +624,23 @@ void Row::PaintCornerBadgeFrame(
 		? st::dialogsOnlineBadgeSkip
 		: st::dialogsCallBadgeSkip;
 	const auto shrink = (size / 2) * (1. - topLayerProgress);
+
+	if (Pawgram::Theme::IsPawgramAestheticEnabled() && online) {
+		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		const auto targetRect = QRectF(
+			photoSize - skip.x() - size,
+			photoSize - skip.y() - size,
+			size,
+			size
+		).marginsRemoved({ shrink, shrink, shrink, shrink });
+		Pawgram::Icons::DrawOnlinePaw(
+			q,
+			targetRect,
+			data->active
+				? Pawgram::Theme::Palette::MintDark
+				: Pawgram::Theme::Palette::Mint);
+		return;
+	}
 
 	auto pen = QPen(Qt::transparent);
 	pen.setWidthF(stroke * topLayerProgress);
