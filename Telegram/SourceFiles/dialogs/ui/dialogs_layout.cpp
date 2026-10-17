@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/unread_counter_format.h"
 #include "ui/cached_round_corners.h"
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/pawgram_theme.hpp"
 #include "styles/style_dialogs.h"
 #include "styles/style_dialogs_layout.h"
 #include "styles/style_widgets.h"
@@ -491,32 +492,40 @@ void PaintRow(
 	p.fillRect(geometry, context.currentBg);
 
 	// CUSTOM: Apply custom border radius to active/selected chat rows
-	const int customRadius = CustomFeatures::GetConfig().chatBorderRadius;
+	const int customRadius = Pawgram::Theme::Metrics::ScaledChatRadius();
 	if (context.active || context.selected) {
-		const auto marginH = (customRadius > 0) ? (context.narrow ? 2 : 4) : 0;
-		const auto marginV = (customRadius > 0) ? 2 : 0;
-		const auto itemRect = geometry.adjusted(marginH, marginV, -marginH, -marginV);
+		if (customRadius == 0) {
+			p.fillRect(geometry, bg);
+		} else {
+			const auto marginH = context.narrow ? style::ConvertScale(2) : style::ConvertScale(4);
+			const auto marginV = style::ConvertScale(2);
+			const auto itemRect = geometry.adjusted(marginH, marginV, -marginH, -marginV);
 
-		// Draw soft shadow under active/selected row
-		if (CustomFeatures::GetConfig().enableSoftShadows && customRadius > 0) {
-			p.save();
-			p.setRenderHint(QPainter::Antialiasing);
-			p.setOpacity(0.18);
-			p.setPen(Qt::NoPen);
-			p.setBrush(QColor(0, 0, 0, 80));
-			p.drawRoundedRect(itemRect.adjusted(0, 1, 0, 2), customRadius, customRadius);
-			p.restore();
-		}
-
-		if (customRadius > 0 && customRadius <= 24) {
 			p.save();
 			p.setRenderHint(QPainter::Antialiasing);
 			p.setPen(Qt::NoPen);
+
+			// Draw soft pastel glow under active row, or soft shadow under selected
+			if (CustomFeatures::GetConfig().enableSoftShadows) {
+				const auto glowOffset = style::ConvertScale(1);
+				if (context.active) {
+					p.setBrush(Pawgram::Theme::Palette::ActiveChatGlow);
+					p.drawRoundedRect(
+						itemRect.adjusted(-glowOffset, -glowOffset, glowOffset, glowOffset),
+						customRadius + glowOffset,
+						customRadius + glowOffset);
+				} else {
+					p.setBrush(Pawgram::Theme::Palette::SelectedChatShadow);
+					p.drawRoundedRect(
+						itemRect.adjusted(0, glowOffset, 0, glowOffset * 2),
+						customRadius,
+						customRadius);
+				}
+			}
+
 			p.setBrush(bg);
 			p.drawRoundedRect(itemRect, customRadius, customRadius);
 			p.restore();
-		} else {
-			p.fillRect(geometry, bg);
 		}
 	}
 	

@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "base/options.h"
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/pawgram_theme.hpp"
 
 #include "ui/chat/chat_theme.h"
 #include "ui/painter.h"
@@ -30,29 +31,27 @@ base::options::toggle UseSmallMsgBubbleRadius({
 const char kOptionUseSmallMsgBubbleRadius[] = "use-small-msg-bubble-radius";
 
 int BubbleRadiusSmall() {
-	// CUSTOM: Use custom message border radius
-	const int customRadius = CustomFeatures::GetConfig().messageBorderRadius;
-	if (customRadius > 0 && customRadius <= 24) {
-		return customRadius;
+	if (UseSmallMsgBubbleRadius.value()) {
+		return st::bubbleRadiusSmall;
 	}
-	return st::bubbleRadiusSmall;
+	if (!Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		return st::bubbleRadiusSmall;
+	}
+	return Pawgram::Theme::Metrics::MessageBorderRadius();
 }
 
 int BubbleRadiusLarge() {
-	// CUSTOM: Use custom message border radius (slightly larger)
-	const int customRadius = CustomFeatures::GetConfig().messageBorderRadius;
-	if (customRadius > 0 && customRadius <= 24) {
-		return std::min(customRadius + 4, 24); // Large = small + 4px, max 24px
+	if (UseSmallMsgBubbleRadius.value()) {
+		return st::bubbleRadiusSmall;
 	}
-	
-	static const auto result = [] {
-		if (UseSmallMsgBubbleRadius.value()) {
-			return st::bubbleRadiusSmall;
-		} else {
-			return st::bubbleRadiusLarge;
-		}
-	}();
-	return result;
+	if (!Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		return st::bubbleRadiusLarge;
+	}
+	const int customRadius = Pawgram::Theme::Metrics::MessageBorderRadius();
+	if (customRadius == 0) {
+		return 0;
+	}
+	return std::min(customRadius + Pawgram::Theme::Metrics::LargeBubbleOffset, Pawgram::Theme::Metrics::MaxBorderRadius);
 }
 
 int MsgFileThumbRadiusSmall() {

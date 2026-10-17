@@ -1,6 +1,7 @@
 #pragma once
 
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/pawgram_theme.hpp"
 #include <QEasingCurve>
 #include <QGraphicsDropShadowEffect>
 #include <QPainter>
@@ -13,15 +14,15 @@ namespace UI {
 
 // Получить скругление для разных типов элементов
 inline int GetChatBorderRadius() {
-    return GetConfig().chatBorderRadius;
+    return Pawgram::Theme::Metrics::DefaultBorderRadius();
 }
 
 inline int GetMessageBorderRadius() {
-    return GetConfig().messageBorderRadius;
+    return Pawgram::Theme::Metrics::MessageBorderRadius();
 }
 
 inline int GetButtonBorderRadius() {
-    return GetConfig().buttonBorderRadius;
+    return Pawgram::Theme::Metrics::ButtonBorderRadius();
 }
 
 // Тени
@@ -94,22 +95,18 @@ inline QString GetBorderRadiusStyle(int radius) {
 
 // Нарисовать мягкую тень под прямоугольником (для QPainter)
 inline void DrawSoftShadow(QPainter& p, const QRect& rect, int radius) {
-    if (!AreSoftShadowsEnabled()) {
+    if (!AreSoftShadowsEnabled() || rect.isEmpty()) {
         return;
     }
     
-    // Создаём градиент для тени
-    const int shadowSize = 8;
-    QRect shadowRect = rect.adjusted(-shadowSize, -shadowSize, shadowSize, shadowSize);
-    
-    QRadialGradient gradient(rect.center(), rect.width() / 2.0 + shadowSize);
-    gradient.setColorAt(0, QColor(0, 0, 0, 25));
-    gradient.setColorAt(1, QColor(0, 0, 0, 0));
+    const int shadowSize = style::ConvertScale(4);
+    const QRect shadowRect = rect.adjusted(-shadowSize, 0, shadowSize, shadowSize * 2);
     
     p.save();
-    p.setBrush(gradient);
+    p.setRenderHint(QPainter::Antialiasing);
     p.setPen(Qt::NoPen);
-    p.drawRoundedRect(shadowRect, radius + 2, radius + 2);
+    p.setBrush(Pawgram::Theme::Palette::SelectedChatShadow);
+    p.drawRoundedRect(shadowRect, radius + shadowSize, radius + shadowSize);
     p.restore();
 }
 
