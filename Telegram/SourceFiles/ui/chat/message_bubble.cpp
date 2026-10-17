@@ -12,6 +12,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_style.h"
+#include "custom_features/pawgram_theme.hpp"
+
+#include <QtGui/QPainterPath>
 
 namespace Ui {
 namespace {
@@ -221,7 +224,11 @@ void PaintPatternBubble(QPainter &p, const SimpleBubble &args) {
 
 void PaintSolidBubble(QPainter &p, const SimpleBubble &args) {
 	const auto &st = args.st->messageStyle(args.outbg, args.selected);
-	const auto &bg = st.msgBg;
+	const auto &bg = (Pawgram::Theme::IsPawgramAestheticEnabled() && !args.selected)
+		? (args.outbg
+			? Pawgram::Theme::Palette::OutgoingBubble
+			: Pawgram::Theme::Palette::IncomingBubble)
+		: st.msgBg->c;
 	const auto sh = (args.rounding.bottomRight == Corner::None)
 		? nullptr
 		: &st.msgShadow;
@@ -237,11 +244,73 @@ void PaintSolidBubble(QPainter &p, const SimpleBubble &args) {
 	}, [&](const QRect &rect) {
 		p.fillRect(rect, *sh);
 	}, [&](int x, int y, int index, Corner size) {
+		if (Pawgram::Theme::IsPawgramAestheticEnabled() && !args.selected) {
+			const auto radius = (size == Corner::Large)
+				? BubbleRadiusLarge()
+				: BubbleRadiusSmall();
+			if (radius > 0) {
+				p.save();
+				p.setRenderHint(QPainter::Antialiasing, true);
+				p.setPen(Qt::NoPen);
+				p.setBrush(bg);
+				QPainterPath path;
+				const auto r = qreal(radius);
+				const auto qx = qreal(x);
+				const auto qy = qreal(y);
+				if (index == Images::kTopLeft) {
+					path.moveTo(qx, qy + r);
+					path.arcTo(qx, qy, r * 2, r * 2, 180, -90);
+					path.lineTo(qx + r, qy);
+					path.lineTo(qx + r, qy + r);
+				} else if (index == Images::kTopRight) {
+					path.moveTo(qx, qy);
+					path.arcTo(qx - r, qy, r * 2, r * 2, 90, -90);
+					path.lineTo(qx + r, qy + r);
+					path.lineTo(qx, qy + r);
+				} else if (index == Images::kBottomLeft) {
+					path.moveTo(qx + r, qy + r);
+					path.arcTo(qx, qy - r, r * 2, r * 2, 270, -90);
+					path.lineTo(qx, qy);
+					path.lineTo(qx + r, qy);
+				} else if (index == Images::kBottomRight) {
+					path.moveTo(qx + r, qy);
+					path.arcTo(qx - r, qy - r, r * 2, r * 2, 0, -90);
+					path.lineTo(qx, qy + r);
+					path.lineTo(qx, qy);
+				}
+				path.closeSubpath();
+				p.drawPath(path);
+				p.restore();
+				return;
+			}
+		}
 		auto &corners = (size == Corner::Large)
 			? st.msgBgCornersLarge
 			: st.msgBgCornersSmall;
 		p.drawPixmap(x, y, corners.p[index]);
 	}, [&](const QPoint &bottomPosition) {
+		if (Pawgram::Theme::IsPawgramAestheticEnabled() && !args.selected) {
+			const auto isRight = (args.rounding.bottomRight == Corner::Tail);
+			const auto pos = bottomPosition - tailShift;
+			const auto tw = qreal(tail.width());
+			const auto th = qreal(tail.height());
+			p.save();
+			p.setRenderHint(QPainter::Antialiasing, true);
+			QPainterPath tailPath;
+			if (isRight) {
+				tailPath.moveTo(pos.x(), pos.y() + th);
+				tailPath.lineTo(pos.x() + tw, pos.y() + th);
+				tailPath.quadTo(pos.x() + tw * 0.5, pos.y() + th * 0.5, pos.x(), pos.y());
+			} else {
+				tailPath.moveTo(pos.x() + tw, pos.y() + th);
+				tailPath.lineTo(pos.x(), pos.y() + th);
+				tailPath.quadTo(pos.x() + tw * 0.5, pos.y() + th * 0.5, pos.x() + tw, pos.y());
+			}
+			tailPath.closeSubpath();
+			p.fillPath(tailPath, bg);
+			p.restore();
+			return tail.width();
+		}
 		tail.paint(p, bottomPosition - tailShift, args.outerWidth);
 		return tail.width();
 	});

@@ -120,6 +120,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\dialogs\ui\dialogs_layout.cpp" "$dst\Telegram\SourceFiles\dialogs\ui\"
           Copy-Item -Force "$src\Telegram\SourceFiles\main\main_session.cpp" "$dst\Telegram\SourceFiles\main\"
           Copy-Item -Force "$src\Telegram\SourceFiles\ui\chat\chat_style_radius.cpp" "$dst\Telegram\SourceFiles\ui\chat\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\ui\chat\message_bubble.cpp" "$dst\Telegram\SourceFiles\ui\chat\"
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\main_window_win.cpp" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\windows_dlls.h" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\window_controller.cpp" "$dst\Telegram\SourceFiles\window\"
