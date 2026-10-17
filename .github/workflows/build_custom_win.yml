@@ -212,7 +212,7 @@ jobs:
           Write-Host "[✓] Artifact prepared with Telegram.exe and bundled tg-ws-proxy.exe!"
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TelegramCustom-Windows-x64
           path: artifact\
