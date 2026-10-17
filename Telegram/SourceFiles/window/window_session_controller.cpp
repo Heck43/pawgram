@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_filters_menu.h"
 #include "window/section_widget.h"
 #include "window/window_separate_id.h"
+#include "custom_features/pawgram_theme.hpp"
 #include "info/channel_statistics/earn/info_channel_earn_list.h"
 #include "info/peer_gifts/info_peer_gifts_widget.h"
 #include "info/stories/info_stories_widget.h"
@@ -1648,7 +1649,7 @@ SessionController::SessionController(
 	const auto processFiltersMenu = [this] {
 		if (SessionNavigation::session().data().chatsFilters().has()) {
 			const auto isHorizontal
-				= Core::App().settings().chatFiltersHorizontal()
+				= (Core::App().settings().chatFiltersHorizontal() && !Pawgram::Theme::IsPawgramAestheticEnabled())
 					|| !enoughSpaceForFilters();
 			content()->toggleFiltersMenu(isHorizontal);
 			toggleFiltersMenu(!isHorizontal);

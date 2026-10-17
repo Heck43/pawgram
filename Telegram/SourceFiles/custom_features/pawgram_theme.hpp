@@ -19,7 +19,8 @@ struct Palette {
 	static inline const QColor Rose = QColor(254, 205, 211);         // #FECDD3 Розовый
 	static inline const QColor RoseDark = QColor(244, 63, 94);        // #F43F5E
 
-	// Полупрозрачные стеклянные панели (Glass panels)
+	// Полупрозрачные и сплошные стеклянные панели (Glass panels)
+	static inline const QColor SolidGlassBgDark = QColor(15, 23, 42); // #0F172A Сплошной для OpaquePaintEvent
 	static inline const QColor GlassBgDark = QColor(15, 23, 42, 215);
 	static inline const QColor GlassBgSubtle = QColor(30, 41, 59, 140);
 	static inline const QColor GlassBorder = QColor(255, 255, 255, 30);

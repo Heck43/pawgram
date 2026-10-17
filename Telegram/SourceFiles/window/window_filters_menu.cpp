@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_widgets.h"
 #include "styles/style_window.h"
 #include "styles/style_menu_icons.h"
+#include "custom_features/pawgram_theme.hpp"
 
 #include <QtGui/QtEvents>
 
@@ -128,8 +129,21 @@ void FiltersMenu::setup() {
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(&_outer);
 		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowFiltersButton.textBg);
-		p.drawRect(clip);
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+			p.fillRect(clip, Pawgram::Theme::Palette::SolidGlassBgDark);
+			const auto borderWidth = style::ConvertScale(1);
+			if (_outer.width() > borderWidth) {
+				p.fillRect(
+					_outer.width() - borderWidth,
+					0,
+					borderWidth,
+					_outer.height(),
+					Pawgram::Theme::Palette::GlassBorder);
+			}
+		} else {
+			p.setBrush(st::windowFiltersButton.textBg);
+			p.drawRect(clip);
+		}
 	}, _outer.lifetime());
 
 	_parent->heightValue(
