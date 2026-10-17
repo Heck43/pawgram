@@ -65,7 +65,7 @@ jobs:
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake || true
 
       - name: Checkout Custom Codebase
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: custom_src
 
