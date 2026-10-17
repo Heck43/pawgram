@@ -142,6 +142,8 @@ jobs:
           Copy-Item -Force "$src\custom_patches\lib_ui\ui\widgets\elastic_scroll.cpp" "$dst\Telegram\lib_ui\ui\widgets\"
           Copy-Item -Force "$src\custom_patches\lib_ui\ui\widgets\scroll_area.h" "$dst\Telegram\lib_ui\ui\widgets\"
           Copy-Item -Force "$src\custom_patches\lib_ui\ui\widgets\scroll_area.cpp" "$dst\Telegram\lib_ui\ui\widgets\"
+          Copy-Item -Force "$src\custom_patches\lib_ui\ui\widgets\side_bar_button.h" "$dst\Telegram\lib_ui\ui\widgets\"
+          Copy-Item -Force "$src\custom_patches\lib_ui\ui\widgets\side_bar_button.cpp" "$dst\Telegram\lib_ui\ui\widgets\"
           Copy-Item -Force "$src\Telegram\build\prepare\prepare.py" "$dst\Telegram\build\prepare\"
           Copy-Item -Force "$src\Telegram\CMakeLists.txt" "$dst\Telegram\"
           

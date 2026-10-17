@@ -107,14 +107,7 @@ void SectionWidget::paintEvent(QPaintEvent *e) {
 	if (!animatingShow()) {
 		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
 			auto p = QPainter(this);
-			p.fillRect(e->rect(), Pawgram::Theme::Palette::SolidGlassBgDark);
-			const auto borderWidth = style::ConvertScale(1);
-			p.fillRect(
-				0,
-				0,
-				borderWidth,
-				height(),
-				Pawgram::Theme::Palette::GlassBorder);
+			Pawgram::Theme::PaintGlassPanel(p, rect(), false, true);
 		} else {
 			QPainter(this).fillRect(e->rect(), st::windowBg);
 		}

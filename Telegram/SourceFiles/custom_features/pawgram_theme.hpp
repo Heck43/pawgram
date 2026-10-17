@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QtGui/QColor>
+#include <QtGui/QPainter>
+#include <QtGui/QLinearGradient>
 #include <QtCore/QString>
 #include "custom_features/custom_settings.hpp"
 #include "ui/style/style_core.h"
@@ -98,6 +100,69 @@ struct Metrics {
 inline bool IsPawgramAestheticEnabled() {
 	return CustomFeatures::GetConfig().enableSoftShadows
 		|| (CustomFeatures::GetConfig().chatBorderRadius > 0);
+}
+
+// Отрисовка стеклянной панели с эффектом fluid blur и разделительным бордером
+inline void PaintGlassPanel(
+		QPainter &p,
+		const QRect &rect,
+		bool borderRight = false,
+		bool borderLeft = false) {
+	if (rect.isEmpty()) {
+		return;
+	}
+
+	// 1. Непрозрачная основа для WA_OpaquePaintEvent (гарантия отсутствия артефактов)
+	p.fillRect(rect, Palette::SolidGlassBgDark);
+
+	// 2. Полупрозрачный слой темного стекла
+	p.fillRect(rect, Palette::GlassBgDark);
+
+	// 3. Fluid blur эффект: вертикальный градиент преломления света через матовое стекло
+	const auto sheenHeight = std::min(rect.height(), style::ConvertScale(140));
+	if (sheenHeight > 0) {
+		QLinearGradient topSheen(
+			rect.topLeft(),
+			QPoint(rect.left(), rect.top() + sheenHeight));
+		topSheen.setColorAt(0.0, QColor(255, 255, 255, 16));
+		topSheen.setColorAt(0.4, QColor(255, 255, 255, 6));
+		topSheen.setColorAt(1.0, QColor(255, 255, 255, 0));
+		p.fillRect(
+			QRect(rect.left(), rect.top(), rect.width(), sheenHeight),
+			topSheen);
+	}
+
+	// 4. Мягкий горизонтальный градиент глубины
+	if (borderRight && rect.width() > 0) {
+		QLinearGradient horizSheen(rect.topLeft(), rect.topRight());
+		horizSheen.setColorAt(0.0, QColor(255, 255, 255, 8));
+		horizSheen.setColorAt(1.0, QColor(0, 0, 0, 20));
+		p.fillRect(rect, horizSheen);
+	} else if (borderLeft && rect.width() > 0) {
+		QLinearGradient horizSheen(rect.topLeft(), rect.topRight());
+		horizSheen.setColorAt(0.0, QColor(0, 0, 0, 20));
+		horizSheen.setColorAt(1.0, QColor(255, 255, 255, 8));
+		p.fillRect(rect, horizSheen);
+	}
+
+	// 5. Разделительный стеклянный бордер
+	const auto borderWidth = style::ConvertScale(1);
+	if (borderRight && rect.width() > borderWidth) {
+		p.fillRect(
+			rect.right() - borderWidth + 1,
+			rect.top(),
+			borderWidth,
+			rect.height(),
+			Palette::GlassBorder);
+	}
+	if (borderLeft && rect.width() > borderWidth) {
+		p.fillRect(
+			rect.left(),
+			rect.top(),
+			borderWidth,
+			rect.height(),
+			Palette::GlassBorder);
+	}
 }
 
 } // namespace Pawgram::Theme

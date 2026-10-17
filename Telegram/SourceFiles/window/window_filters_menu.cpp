@@ -123,6 +123,10 @@ void FiltersMenu::setup() {
 	_menu.setIsMenuButton(true);
 	_menu.setAccessibleName(tr::lng_main_menu(tr::now));
 
+	const auto aesthetic = Pawgram::Theme::IsPawgramAestheticEnabled();
+	_menu.setScaleOnPress(aesthetic);
+	_menu.setAestheticGlow(aesthetic);
+
 	_outer.setAttribute(Qt::WA_OpaquePaintEvent);
 	_outer.show();
 	_outer.paintRequest(
@@ -130,16 +134,7 @@ void FiltersMenu::setup() {
 		auto p = QPainter(&_outer);
 		p.setPen(Qt::NoPen);
 		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
-			p.fillRect(clip, Pawgram::Theme::Palette::SolidGlassBgDark);
-			const auto borderWidth = style::ConvertScale(1);
-			if (_outer.width() > borderWidth) {
-				p.fillRect(
-					_outer.width() - borderWidth,
-					0,
-					borderWidth,
-					_outer.height(),
-					Pawgram::Theme::Palette::GlassBorder);
-			}
+			Pawgram::Theme::PaintGlassPanel(p, _outer.rect(), true, false);
 		} else {
 			p.setBrush(st::windowFiltersButton.textBg);
 			p.drawRect(clip);
@@ -584,6 +579,9 @@ base::unique_qptr<Ui::SideBarButton> FiltersMenu::prepareButton(
 			.customEmojiLoopLimit = isStatic ? -1 : 0,
 		}),
 		paused);
+	const auto aesthetic = Pawgram::Theme::IsPawgramAestheticEnabled();
+	prepared->setScaleOnPress(aesthetic);
+	prepared->setAestheticGlow(aesthetic);
 	prepared->setLocked(locked);
 	prepared->setIsListItem(listItem);
 	prepared->setShowIcon(mode != Ui::ChatsFiltersTabsMode::TextOnly);
