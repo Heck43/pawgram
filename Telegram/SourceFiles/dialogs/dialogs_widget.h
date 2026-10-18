@@ -54,6 +54,7 @@ class RequestsBar;
 class MoreChatsBar;
 class JumpDownButton;
 class ElasticScroll;
+class PillTabs;
 template <typename Widget>
 class FadeWrapScaled;
 template <typename Widget>
@@ -346,6 +347,7 @@ private:
 	std::unique_ptr<HistoryView::ContactStatus> _forumReportBar;
 
 	base::unique_qptr<Ui::RpWidget> _chatFilters;
+	base::unique_qptr<Ui::PillTabs> _telecordTabs;
 
 	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _topBarSuggestion;
 	base::unique_qptr<Ui::RpWidget> _topBarSuggestionPlaceholder;

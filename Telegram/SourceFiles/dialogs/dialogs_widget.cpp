@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/chat_filters_tabs_strip.h"
+#include "ui/widgets/pill_tabs.h"
 #include "ui/widgets/elastic_scroll.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/fade_wrap.h"
@@ -151,18 +152,20 @@ protected:
 			QApplication::sendEvent(_search, event);
 			_search->installEventFilter(this);
 
-			if (Pawgram::Theme::IsPawgramAestheticEnabled()
-				&& _search->getLastText().isEmpty()) {
+			if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
 				auto p = QPainter(_search);
-				const auto iconSize = style::ConvertScale(18);
-				const auto iconY = (_search->height() - iconSize) / 2;
-				const auto iconX = style::RightToLeft()
-					? style::ConvertScale(10)
-					: (_search->width() - iconSize - style::ConvertScale(10));
-				Pawgram::Icons::DrawSearchEars(
-					p,
-					QRectF(iconX, iconY, iconSize, iconSize),
-					Pawgram::Theme::Palette::LavenderDark);
+				p.fillRect(_search->rect(), QColor(0, 0, 0, 71));
+				if (_search->getLastText().isEmpty()) {
+					const auto iconSize = style::ConvertScale(18);
+					const auto iconY = (_search->height() - iconSize) / 2;
+					const auto iconX = style::RightToLeft()
+						? style::ConvertScale(10)
+						: (_search->width() - iconSize - style::ConvertScale(10));
+					Pawgram::Icons::DrawSearchEars(
+						p,
+						QRectF(iconX, iconY, iconSize, iconSize),
+						Pawgram::Theme::Palette::LavenderDark);
+				}
 			}
 			return true;
 		}
@@ -738,6 +741,27 @@ Widget::Widget(
 		}
 	});
 
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		_telecordTabs = base::make_unique_q<Ui::PillTabs>(
+			this,
+			std::vector<QString>{
+				QString::fromUtf8("Все"),
+				QString::fromUtf8("Друзья"),
+				QString::fromUtf8("Группы")
+			});
+		_telecordTabs->show();
+		_telecordTabs->activeIndexChanges(
+		) | rpl::on_next([=](int index) {
+			const auto filter = (index == 1)
+				? ChatTypeFilter::Private
+				: (index == 2)
+				? ChatTypeFilter::Groups
+				: ChatTypeFilter::All;
+			auto copy = _searchState;
+			copy.filter = filter;
+			applySearchState(copy);
+		}, _telecordTabs->lifetime());
+	}
 
 	setAcceptDrops(true);
 
@@ -4111,13 +4135,24 @@ bool Widget::applySearchState(SearchState state) {
 	const auto queryEmptyChanged = queryChanged
 		? (_searchState.query.isEmpty() != state.query.isEmpty())
 		: false;
-	if (queryEmptyChanged || tabChanged) {
+	if ((queryEmptyChanged || tabChanged) && !Pawgram::Theme::IsPawgramAestheticEnabled()) {
 		state.filter = ChatTypeFilter::All;
 		state.fromArchive = true;
 	}
 	const auto filterChanged = (_searchState.filter != state.filter);
 	const auto fromArchiveChanged = (_searchState.fromArchive
 		!= state.fromArchive);
+
+	if (_telecordTabs && filterChanged) {
+		const auto tabIndex = (state.filter == ChatTypeFilter::Private)
+			? 1
+			: (state.filter == ChatTypeFilter::Groups)
+			? 2
+			: 0;
+		if (_telecordTabs->activeIndex() != tabIndex) {
+			_telecordTabs->setActiveIndex(tabIndex);
+		}
+	}
 
 	if (forum) {
 		if (_openedForum == forum) {
@@ -4596,6 +4631,20 @@ void Widget::updateControlsGeometry() {
 	if (_frozenAccountBar) {
 		_frozenAccountBar->resize(barw, _frozenAccountBar->height());
 	}
+	if (_telecordTabs) {
+		const auto telecordTabsShown = !_openedForum && _searchState.query.isEmpty();
+		_telecordTabs->setVisible(telecordTabsShown);
+		if (telecordTabsShown) {
+			const auto tabsHeight = _telecordTabs->height();
+			const auto tabsMargin = style::ConvertScale(8);
+			const auto tabsTop = filterAreaTop + filterAreaHeight + style::ConvertScale(4);
+			_telecordTabs->setGeometry(
+				tabsMargin,
+				tabsTop,
+				barw - 2 * tabsMargin,
+				tabsHeight);
+		}
+	}
 	_updateScrollGeometryCached = [=] {
 		const auto frozenBarTop = expandedStoriesTop
 			+ ((!_stories || _stories->isHidden()) ? 0 : _aboveScrollAdded);
@@ -4627,6 +4676,12 @@ void Widget::updateControlsGeometry() {
 		if (_chatFilters) {
 			_chatFilters->move(0, chatFiltersTop);
 		}
+		const auto telecordTabsShown = _telecordTabs
+			&& !_openedForum
+			&& _searchState.query.isEmpty();
+		const auto telecordTabsSkip = telecordTabsShown
+			? (_telecordTabs->height() + style::ConvertScale(8))
+			: 0;
 		const auto scrollTop = chatFiltersTop
 			+ ((_chatFilters
 				&& _searchState.query.isEmpty()
@@ -4634,7 +4689,8 @@ void Widget::updateControlsGeometry() {
 				&& !_searchState.community
 				&& !searchInPeer())
 				? (_chatFilters->height() * (1. - narrowRatio))
-				: 0);
+				: 0)
+			+ telecordTabsSkip;
 		const auto scrollHeight = height() - scrollTop - bottomSkip;
 		const auto wasScrollHeight = _scroll->height();
 		_scroll->setGeometry(0, scrollTop, scrollWidth, scrollHeight);
@@ -4805,13 +4861,26 @@ void Widget::paintEvent(QPaintEvent *e) {
 		_showAnimation->paintContents(p);
 		return;
 	}
-	const auto bg = anim::brush(
-		st::dialogsBg,
-		st::dialogsBgOver,
-		_childListShown.current());
+	const auto bg = Pawgram::Theme::IsPawgramAestheticEnabled()
+		? QBrush(Pawgram::Theme::Palette::TelecordSidebarBg)
+		: anim::brush(
+			st::dialogsBg,
+			st::dialogsBgOver,
+			_childListShown.current());
 	auto above = QRect(0, 0, width(), _scroll->y());
 	if (above.intersects(r)) {
 		p.fillRect(above.intersected(r), bg);
+	}
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		const auto borderWidth = style::ConvertScale(1);
+		if (width() > borderWidth) {
+			p.fillRect(
+				width() - borderWidth,
+				0,
+				borderWidth,
+				height(),
+				Pawgram::Theme::Palette::GlassBorder);
+		}
 	}
 
 	auto belowTop = _scroll->y() + _scroll->height();

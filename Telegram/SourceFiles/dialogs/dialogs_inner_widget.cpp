@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_channel.h"
 #include "data/data_community.h"
 #include "data/data_forum_topic.h"
+#include "custom_features/pawgram_theme.hpp"
 #include "data/data_chat.h"
 #include "data/data_user.h"
 #include "data/data_peer_values.h"
@@ -1954,6 +1955,9 @@ void InnerWidget::paintPeerSearchResult(
 }
 
 QBrush InnerWidget::currentBg() const {
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		return Pawgram::Theme::Palette::TelecordSidebarBg;
+	}
 	return anim::brush(
 		st::dialogsBg,
 		st::dialogsBgOver,
@@ -4209,7 +4213,8 @@ void InnerWidget::applySearchState(SearchState state) {
 		if (_filter.isEmpty()
 			&& !_searchState.fromPeer
 			&& _searchState.tags.empty()
-			&& _searchState.tab != ChatSearchTab::PublicPosts) {
+			&& _searchState.tab != ChatSearchTab::PublicPosts
+			&& (!Pawgram::Theme::IsPawgramAestheticEnabled() || _searchState.filter == ChatTypeFilter::All)) {
 			clearFilter();
 		} else {
 			setState(WidgetState::Filtered);
@@ -4219,12 +4224,17 @@ void InnerWidget::applySearchState(SearchState state) {
 		clearMouseSelection(true);
 	}
 	if (_state != WidgetState::Default) {
-		_searchWaiting = true;
-		_searchRequests.fire(otherChanged
-			? SearchRequestDelay::Instant
-			: SearchRequestDelay::Delayed);
-		if (_searchWaiting) {
+		if (words.isEmpty() && Pawgram::Theme::IsPawgramAestheticEnabled() && _searchState.filter != ChatTypeFilter::All) {
+			_searchWaiting = false;
 			refresh(true);
+		} else {
+			_searchWaiting = true;
+			_searchRequests.fire(otherChanged
+				? SearchRequestDelay::Instant
+				: SearchRequestDelay::Delayed);
+			if (_searchWaiting) {
+				refresh(true);
+			}
 		}
 	}
 }
@@ -4280,19 +4290,42 @@ void InnerWidget::refreshFilterResults() {
 			top += i->row->height();
 		}
 	};
-	if (_searchState.filterChatsList() && !words.isEmpty()) {
-		if (_savedSublists) {
-			append(_savedSublists->chatsList()->indexed());
-		} else if (_openedForum) {
-			append(_openedForum->topicsList()->indexed());
-		} else {
+	if (_searchState.filterChatsList()) {
+		if (words.isEmpty() && Pawgram::Theme::IsPawgramAestheticEnabled() && _searchState.filter != ChatTypeFilter::All) {
 			const auto owner = &session().data();
-			append(owner->chatsList()->indexed());
-			const auto id = Data::Folder::kId;
-			if (const auto add = owner->folderLoaded(id)) {
-				append(add->chatsList()->indexed());
+			const auto list = owner->chatsList()->indexed();
+			auto top = filteredHeight();
+			for (const auto &row : list->all()) {
+				const auto p = row->key().peer();
+				if (!p) {
+					continue;
+				}
+				const auto match = (_searchState.filter == ChatTypeFilter::Private)
+					? p->isUser()
+					: (_searchState.filter == ChatTypeFilter::Groups)
+					? (p->isChat() || p->isMegagroup())
+					: true;
+				if (match) {
+					_filterResults.emplace_back(row.get());
+					_filterResults.back().top = top;
+					_filterResults.back().row->recountHeight(_narrowRatio, _filterId);
+					top += _filterResults.back().row->height();
+				}
 			}
-			append(owner->contactsNoChatsList());
+		} else if (!words.isEmpty()) {
+			if (_savedSublists) {
+				append(_savedSublists->chatsList()->indexed());
+			} else if (_openedForum) {
+				append(_openedForum->topicsList()->indexed());
+			} else {
+				const auto owner = &session().data();
+				append(owner->chatsList()->indexed());
+				const auto id = Data::Folder::kId;
+				if (const auto add = owner->folderLoaded(id)) {
+					append(add->chatsList()->indexed());
+				}
+				append(owner->contactsNoChatsList());
+			}
 		}
 	}
 	for (const auto &[key, row] : _filterResultsGlobal) {
