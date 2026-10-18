@@ -511,7 +511,19 @@ void TopBarWidget::paintEvent(QPaintEvent *e) {
 		: -st::topBarHeight;
 	const auto slidingTop = std::max(selectedButtonsTop, searchFieldTop);
 
-	p.fillRect(QRect(0, 0, width(), st::topBarHeight), st::topBarBg);
+	const auto topBg = Pawgram::Theme::IsPawgramAestheticEnabled()
+		? Pawgram::Theme::Palette::TelecordChatBg
+		: st::topBarBg->c;
+	p.fillRect(QRect(0, 0, width(), st::topBarHeight), topBg);
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		const auto borderWidth = style::ConvertScale(1);
+		p.fillRect(
+			0,
+			st::topBarHeight - borderWidth,
+			width(),
+			borderWidth,
+			Pawgram::Theme::Palette::GlassBorder);
+	}
 	if (slidingTop < 0) {
 		p.translate(0, slidingTop + st::topBarHeight);
 		paintTopBar(p);

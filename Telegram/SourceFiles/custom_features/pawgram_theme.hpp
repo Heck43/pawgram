@@ -29,8 +29,8 @@ struct Palette {
 	static inline const QColor GlassBorderHover = QColor(255, 255, 255, 60);
 
 	// Цвета бабблов сообщений (Исходящие / Входящие)
-	static inline const QColor OutgoingBubble = QColor(167, 139, 250, 230);
-	static inline const QColor IncomingBubble = QColor(30, 41, 59, 200);
+	static inline const QColor OutgoingBubble = QColor(0x58, 0x65, 0xF2);          // TelecordBlurple #5865F2
+	static inline const QColor IncomingBubble = QColor(0x2B, 0x2D, 0x31);          // TelecordSidebarBg #2B2D31
 	static inline const QColor ActiveChatGlow = QColor(167, 243, 208, 120);
 	static inline const QColor SelectedChatShadow = QColor(0, 0, 0, 45);
 

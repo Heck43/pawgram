@@ -138,6 +138,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\api\api_attached_stickers.cpp" "$dst\Telegram\SourceFiles\api\"
           Copy-Item -Force "$src\Telegram\SourceFiles\boxes\stickers_box.h" "$dst\Telegram\SourceFiles\boxes\"
           Copy-Item -Force "$src\Telegram\SourceFiles\boxes\stickers_box.cpp" "$dst\Telegram\SourceFiles\boxes\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\history\history_widget.cpp" "$dst\Telegram\SourceFiles\history\"
           Copy-Item -Force "$src\Telegram\SourceFiles\history\view\history_view_context_menu.cpp" "$dst\Telegram\SourceFiles\history\view\"
           Copy-Item -Force "$src\Telegram\SourceFiles\history\view\history_view_top_bar_widget.cpp" "$dst\Telegram\SourceFiles\history\view\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\themes\window_theme.cpp" "$dst\Telegram\SourceFiles\window\themes\"

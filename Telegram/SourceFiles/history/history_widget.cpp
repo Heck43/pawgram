@@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_photo_media.h"
 #include "data/data_poll.h"
 #include "data/data_channel.h"
+#include "custom_features/pawgram_theme.hpp"
 #include "data/data_chat.h"
 #include "data/data_forum.h"
 #include "data/data_forum_topic.h"
@@ -10857,7 +10858,22 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	}
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
-	p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		p.fillRect(myrtlrect(0, backy, width(), backh), Pawgram::Theme::Palette::TelecordChatBg);
+		const auto fieldRect = QRect(
+			_field->x() - style::ConvertScale(4),
+			_field->y() - style::ConvertScale(2),
+			_field->width() + style::ConvertScale(8),
+			_field->height() + style::ConvertScale(4));
+		p.save();
+		p.setRenderHint(QPainter::Antialiasing, true);
+		p.setPen(Qt::NoPen);
+		p.setBrush(Pawgram::Theme::Palette::TelecordInputBg);
+		p.drawRoundedRect(fieldRect, style::ConvertScale(8), style::ConvertScale(8));
+		p.restore();
+	} else {
+		p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	}
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
@@ -11129,11 +11145,15 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 		updateListSize();
 	}
 
-	Window::SectionWidget::PaintBackground(
-		controller(),
-		controller()->currentChatTheme(),
-		this,
-		e->rect());
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		QPainter(this).fillRect(e->rect(), Pawgram::Theme::Palette::TelecordChatBg);
+	} else {
+		Window::SectionWidget::PaintBackground(
+			controller(),
+			controller()->currentChatTheme(),
+			this,
+			e->rect());
+	}
 
 	Painter p(this);
 	const auto clip = e->rect();
