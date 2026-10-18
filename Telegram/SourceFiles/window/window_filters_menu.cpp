@@ -903,7 +903,7 @@ void FiltersMenu::setupUserProfileButton() {
 		Core::TextContext({ .session = &_session->session() }));
 	prepared->setScaleOnPress(true);
 	prepared->setAestheticGlow(true);
-	prepared->setAccessibleName(tr::lng_settings_section(tr::now));
+	prepared->setAccessibleName(tr::lng_menu_settings(tr::now));
 	prepared->setClickedCallback([=] {
 		_session->widget()->showMainMenu();
 	});
