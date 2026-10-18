@@ -282,6 +282,14 @@ MainWidget::MainWidget(
 		handleHistoryBack();
 	}, lifetime());
 
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		_controller->activeChatValue(
+		) | rpl::on_next([=] {
+			updateColumnLayout();
+			updateControlsGeometry();
+		}, lifetime());
+	}
+
 	Core::App().calls().currentCallValue(
 	) | rpl::on_next([=](Calls::Call *call) {
 		setCurrentCall(call);

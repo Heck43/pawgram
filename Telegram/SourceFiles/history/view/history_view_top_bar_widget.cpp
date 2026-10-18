@@ -874,6 +874,10 @@ void TopBarWidget::backClicked() {
 		&& _activeChat.key.history()->peer->asChannel()
 		&& _activeChat.key.history()->peer->asChannel()->isCommunity()) {
 		_controller->closeCommunity();
+	} else if (!_controller->content()->stackIsEmpty()) {
+		_controller->showBackFromStack();
+	} else if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		_controller->showPeerHistory(PeerId(0));
 	} else {
 		_controller->showBackFromStack();
 	}
@@ -1321,7 +1325,8 @@ void TopBarWidget::updateControlsVisibility() {
 	const auto backVisible = !rootChatsListBar()
 		&& (isOneColumn
 			|| (_activeChat.section == Section::ChatsList)
-			|| !_controller->content()->stackIsEmpty());
+			|| !_controller->content()->stackIsEmpty()
+			|| (Pawgram::Theme::IsPawgramAestheticEnabled() && _activeChat.key.peer()));
 	_back->setVisible(backVisible && !_chooseForReportReason);
 	_cancelChoose->setVisible(_chooseForReportReason.has_value());
 	updateInfoButtonVisibility();

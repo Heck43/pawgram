@@ -161,6 +161,7 @@ void FiltersMenu::setup() {
 		_menu.setAccessibleName(tr::lng_filters_all(tr::now));
 		_menu.setClickedCallback([=] {
 			_session->setActiveChatsFilter(FilterId(0));
+			_session->showPeerHistory(PeerId(0));
 		});
 
 		rpl::combine(

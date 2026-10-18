@@ -2635,14 +2635,17 @@ auto SessionController::computeColumnLayout() const -> ColumnLayout {
 		layout = Adaptive::WindowLayout::ThreeColumn;
 		dialogsWidth = countDialogsWidthFromRatio(bodyWidth);
 		thirdWidth = countThirdColumnWidthFromRatio(bodyWidth);
-		auto shrink = shrinkDialogsAndThirdColumns(
-			dialogsWidth,
-			thirdWidth,
-			bodyWidth);
-		dialogsWidth = shrink.dialogsWidth;
-		thirdWidth = shrink.thirdWidth;
-
-		chatWidth = bodyWidth - dialogsWidth - thirdWidth;
+		if (dialogsWidth == 0) {
+			chatWidth = bodyWidth - thirdWidth;
+		} else {
+			auto shrink = shrinkDialogsAndThirdColumns(
+				dialogsWidth,
+				thirdWidth,
+				bodyWidth);
+			dialogsWidth = shrink.dialogsWidth;
+			thirdWidth = shrink.thirdWidth;
+			chatWidth = bodyWidth - dialogsWidth - thirdWidth;
+		}
 	}
 	return { bodyWidth, dialogsWidth, chatWidth, thirdWidth, layout };
 }
@@ -2650,6 +2653,14 @@ auto SessionController::computeColumnLayout() const -> ColumnLayout {
 int SessionController::countDialogsWidthFromRatio(int bodyWidth) const {
 	if (!_hasDialogs) {
 		return 0;
+	}
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		const auto key = activeChatCurrent();
+		if (const auto peer = key.peer()) {
+			if (peer->isChannel() && !peer->isForum()) {
+				return 0;
+			}
+		}
 	}
 	const auto nochat = !mainSectionShown();
 	const auto width = bodyWidth
