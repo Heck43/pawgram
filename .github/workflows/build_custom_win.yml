@@ -127,6 +127,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\windows_dlls.h" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\window_controller.cpp" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\main_window.cpp" "$dst\Telegram\SourceFiles\window\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\window\window_filters_menu.h" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\window_filters_menu.cpp" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\window\window_session_controller.cpp" "$dst\Telegram\SourceFiles\window\"
           Copy-Item -Force "$src\Telegram\SourceFiles\mainwidget.cpp" "$dst\Telegram\SourceFiles\"

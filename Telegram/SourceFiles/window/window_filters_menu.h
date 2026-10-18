@@ -72,6 +72,8 @@ private:
 	[[nodiscard]] bool listFocused() const;
 	void openFiltersSettings();
 	void setupDragAndDrop();
+	void setupUserProfileButton();
+	void setupMyChannelButton();
 
 	const not_null<SessionController*> _session;
 	const not_null<Ui::RpWidget*> _parent;
@@ -82,6 +84,8 @@ private:
 	Ui::VerticalLayout *_list = nullptr;
 	std::unique_ptr<Ui::VerticalLayoutReorder> _reorder;
 	base::unique_qptr<Ui::SideBarButton> _setup;
+	base::unique_qptr<Ui::SideBarButton> _myChannelButton;
+	base::unique_qptr<Ui::SideBarButton> _userProfileButton;
 	base::unique_qptr<Ui::SlideWrap<FolderFavoriteButton>> _favorite;
 	base::flat_map<FilterId, base::unique_qptr<Ui::SideBarButton>> _filters;
 	base::weak_qptr<Ui::SideBarButton> _tabStop;

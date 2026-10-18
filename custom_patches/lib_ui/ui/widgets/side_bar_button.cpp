@@ -11,6 +11,7 @@
 #include "styles/style_widgets.h"
 
 #include <QtGui/QtEvents>
+#include <QtGui/QPainterPath>
 #include <QtCore/QPropertyAnimation>
 #include <QtCore/QEasingCurve>
 #include <QAccessible>
@@ -179,6 +180,15 @@ void SideBarButton::setAestheticGlow(bool enabled) {
 	update();
 }
 
+void SideBarButton::setIsCreatorChannel(bool isCreator) {
+	_isCreatorChannel = isCreator;
+	update();
+}
+
+bool SideBarButton::isCreatorChannel() const {
+	return _isCreatorChannel;
+}
+
 void SideBarButton::onStateChanged(State was, StateChangeSource source) {
 	RippleButton::onStateChanged(was, source);
 	if (_scaleOnPress) {
@@ -238,14 +248,14 @@ void SideBarButton::paintEvent(QPaintEvent *e) {
 	if (_aestheticGlow) {
 		if (_active) {
 			const auto pillWidth = style::ConvertScale(4);
-			const auto pillHeight = style::ConvertScale(32);
+			const auto pillHeight = style::ConvertScale(36);
 			const auto pillY = (height() - pillHeight) / 2;
-			p.fillRect(0, pillY, pillWidth, pillHeight, QColor(167, 243, 208));
+			p.fillRect(0, pillY, pillWidth, pillHeight, Qt::white);
 		} else if (isOver()) {
 			const auto pillWidth = style::ConvertScale(4);
-			const auto pillHeight = style::ConvertScale(16);
+			const auto pillHeight = style::ConvertScale(18);
 			const auto pillY = (height() - pillHeight) / 2;
-			p.fillRect(0, pillY, pillWidth, pillHeight, QColor(255, 255, 255, 90));
+			p.fillRect(0, pillY, pillWidth, pillHeight, QColor(255, 255, 255, 140));
 		}
 	}
 
@@ -330,6 +340,29 @@ void SideBarButton::paintEvent(QPaintEvent *e) {
 				iconTop() + folder.height() - shift - size.height() / 2);
 		}
 		p.drawImage(0, 0, icon);
+	}
+
+	if (_isCreatorChannel) {
+		const auto crownSize = style::ConvertScale(14);
+		const auto crownX = width() - crownSize - style::ConvertScale(6);
+		const auto crownY = style::ConvertScale(6);
+		p.save();
+		p.setRenderHint(QPainter::Antialiasing, true);
+		QPainterPath crown;
+		const auto cx = qreal(crownX);
+		const auto cy = qreal(crownY);
+		const auto cw = qreal(crownSize);
+		const auto ch = qreal(crownSize * 0.75);
+		crown.moveTo(cx, cy + ch);
+		crown.lineTo(cx, cy + ch * 0.35);
+		crown.lineTo(cx + cw * 0.25, cy + ch * 0.65);
+		crown.lineTo(cx + cw * 0.5, cy);
+		crown.lineTo(cx + cw * 0.75, cy + ch * 0.65);
+		crown.lineTo(cx + cw, cy + ch * 0.35);
+		crown.lineTo(cx + cw, cy + ch);
+		crown.closeSubpath();
+		p.fillPath(crown, QColor(0xFF, 0xD7, 0x00));
+		p.restore();
 	}
 
 	if (hasScale) {

@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "core/ui_integration.h"
 #include "data/data_session.h"
+#include "data/data_channel.h"
 #include "data/data_chat_filters.h"
 #include "data/data_user.h"
 #include "data/data_peer_values.h"
@@ -134,23 +135,69 @@ void FiltersMenu::setup() {
 		auto p = QPainter(&_outer);
 		p.setPen(Qt::NoPen);
 		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
-			Pawgram::Theme::PaintGlassPanel(p, _outer.rect(), true, false);
+			p.fillRect(clip, Pawgram::Theme::Palette::TelecordRailBg);
+			const auto borderWidth = style::ConvertScale(1);
+			if (_outer.width() > borderWidth) {
+				p.fillRect(
+					_outer.width() - borderWidth,
+					0,
+					borderWidth,
+					_outer.height(),
+					Pawgram::Theme::Palette::GlassBorder);
+			}
+			if (_userProfileButton) {
+				const auto userHeight = _outer.width();
+				const auto userRect = QRect(0, _outer.height() - userHeight, _outer.width(), userHeight);
+				p.fillRect(userRect, Pawgram::Theme::Palette::TelecordUserBarBg);
+				p.fillRect(0, userRect.top(), _outer.width() - borderWidth, borderWidth, Pawgram::Theme::Palette::GlassBorder);
+			}
 		} else {
 			p.setBrush(st::windowFiltersButton.textBg);
 			p.drawRect(clip);
 		}
 	}, _outer.lifetime());
 
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		_menu.setAccessibleName(tr::lng_filters_all(tr::now));
+		_menu.setClickedCallback([=] {
+			_session->setActiveChatsFilter(FilterId(0));
+		});
+
+		rpl::combine(
+			Data::UnreadStateValue(&_session->session(), 0),
+			Data::IncludeMutedCounterFoldersValue()
+		) | rpl::on_next([=](const Dialogs::UnreadState &state, bool includeMuted) {
+			const auto count = includeMuted
+				? (state.chats + state.marks)
+				: (state.chats - state.chatsMuted + state.marks - state.marksMuted);
+			_menu.setBadge(count > 0 ? QString::number(count) : QString(), false);
+		}, _menu.lifetime());
+
+		setupUserProfileButton();
+		setupMyChannelButton();
+	} else {
+		_menu.setClickedCallback([=] {
+			_session->widget()->showMainMenu();
+		});
+	}
+
 	_parent->heightValue(
 	) | rpl::on_next([=](int height) {
 		const auto width = st::windowFiltersWidth;
+		const auto userHeight = (_userProfileButton && Pawgram::Theme::IsPawgramAestheticEnabled())
+			? width
+			: 0;
 		_outer.setGeometry({ 0, 0, width, height });
 		_menu.resizeToWidth(width);
 		_menu.move(0, 0);
 		_scroll.setGeometry(
-			{ 0, _menu.height(), width, height - _menu.height() });
+			{ 0, _menu.height(), width, height - _menu.height() - userHeight });
 		_container->resizeToWidth(width);
 		_container->move(0, 0);
+		if (_userProfileButton) {
+			_userProfileButton->resizeToWidth(width);
+			_userProfileButton->move(0, height - userHeight);
+		}
 	}, _outer.lifetime());
 
 	auto premium = Data::AmPremiumValue(&_session->session());
@@ -164,10 +211,16 @@ void FiltersMenu::setup() {
 	}, _outer.lifetime());
 
 	_activeFilterId = _session->activeChatsFilterCurrent();
+	if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+		_menu.setActive(_activeFilterId == 0);
+	}
 	_session->activeChatsFilter(
 	) | rpl::filter([=](FilterId id) {
 		return (id != _activeFilterId);
 	}) | rpl::on_next([=](FilterId id) {
+		if (Pawgram::Theme::IsPawgramAestheticEnabled()) {
+			_menu.setActive(id == 0);
+		}
 		if (!_list) {
 			_activeFilterId = id;
 			return;
@@ -184,10 +237,6 @@ void FiltersMenu::setup() {
 		}
 		_reorder->finishReordering();
 	}, _outer.lifetime());
-
-	_menu.setClickedCallback([=] {
-		_session->widget()->showMainMenu();
-	});
 
 	Core::App().settings().chatFiltersTabsModeValue(
 	) | rpl::skip(1) | rpl::on_next([=] {
@@ -839,6 +888,68 @@ void FiltersMenu::applyReorder(
 	_ignoreRefresh = true;
 	filters->saveOrder(order);
 	_ignoreRefresh = false;
+}
+
+void FiltersMenu::setupUserProfileButton() {
+	if (_userProfileButton) {
+		return;
+	}
+	const auto user = _session->session().user();
+	auto prepared = object_ptr<Ui::SideBarButton>(
+		&_outer,
+		TextWithEntities{ user->name() },
+		buttonStyle(),
+		Core::TextContext({ .session = &_session->session() }));
+	prepared->setScaleOnPress(true);
+	prepared->setAestheticGlow(true);
+	prepared->setAccessibleName(tr::lng_settings_section(tr::now));
+	prepared->setClickedCallback([=] {
+		_session->widget()->showMainMenu();
+	});
+	_userProfileButton = base::unique_qptr<Ui::SideBarButton>(std::move(prepared));
+	_userProfileButton->show();
+}
+
+void FiltersMenu::setupMyChannelButton() {
+	if (_myChannelButton) {
+		return;
+	}
+	ChannelData *myChannel = nullptr;
+	_session->session().data().enumerateBroadcasts([&](not_null<ChannelData*> channel) {
+		if (channel->amCreator() && !myChannel) {
+			myChannel = channel.get();
+		}
+	});
+
+	const auto title = myChannel
+		? myChannel->name()
+		: QString("Мой канал");
+	auto prepared = object_ptr<Ui::SideBarButton>(
+		_container,
+		TextWithEntities{ title },
+		buttonStyle(),
+		Core::TextContext({ .session = &_session->session() }));
+	prepared->setScaleOnPress(true);
+	prepared->setAestheticGlow(true);
+	prepared->setIsCreatorChannel(true);
+	prepared->setAccessibleName(title);
+	prepared->setClickedCallback([=] {
+		ChannelData *target = nullptr;
+		_session->session().data().enumerateBroadcasts([&](not_null<ChannelData*> channel) {
+			if (channel->amCreator() && !target) {
+				target = channel.get();
+			}
+		});
+		if (target) {
+			_session->showPeerHistory(target);
+		} else {
+			_session->showNewChannel();
+		}
+	});
+	auto added = _container->insert(0, std::move(prepared));
+	_myChannelButton = base::unique_qptr<Ui::SideBarButton>(std::move(added));
+	_myChannelButton->show();
+	_container->resizeToWidth(st::windowFiltersWidth);
 }
 
 } // namespace Window

@@ -40,6 +40,8 @@ public:
 	void setShowText(bool shown);
 	void setScaleOnPress(bool enabled);
 	void setAestheticGlow(bool enabled);
+	void setIsCreatorChannel(bool isCreator);
+	[[nodiscard]] bool isCreatorChannel() const;
 
 	int resizeGetHeight(int newWidth) override;
 
@@ -88,6 +90,7 @@ private:
 
 	bool _scaleOnPress = false;
 	bool _aestheticGlow = false;
+	bool _isCreatorChannel = false;
 	QPropertyAnimation *_scaleAnimation = nullptr;
 
 	void animateScale(qreal targetScale);

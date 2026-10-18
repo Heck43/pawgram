@@ -33,6 +33,16 @@ struct Palette {
 	static inline const QColor IncomingBubble = QColor(30, 41, 59, 200);
 	static inline const QColor ActiveChatGlow = QColor(167, 243, 208, 120);
 	static inline const QColor SelectedChatShadow = QColor(0, 0, 0, 45);
+
+	// 🎮 Токены темы Telecord (Discord Pure Dark + Telegram Hybrid)
+	static inline const QColor TelecordRailBg = QColor(0x1E, 0x1F, 0x22);          // #1E1F22 (Левый рейл каналов)
+	static inline const QColor TelecordSidebarBg = QColor(0x2B, 0x2D, 0x31);       // #2B2D31 (Сайдбар чатов/тем)
+	static inline const QColor TelecordChatBg = QColor(0x31, 0x33, 0x38);          // #313338 (Фон активного чата)
+	static inline const QColor TelecordInputBg = QColor(0x38, 0x3A, 0x40);         // #383A40 (Поле ввода)
+	static inline const QColor TelecordUserBarBg = QColor(0x23, 0x24, 0x28);       // #232428 (Нижняя плашка профиля)
+	static inline const QColor TelecordBlurple = QColor(0x58, 0x65, 0xF2);         // #5865F2 (Discord Blurple)
+	static inline const QColor TelecordBlurpleActive = QColor(0x47, 0x52, 0xC4);   // #4752C4
+	static inline const QColor TelecordCrownGold = QColor(0xFF, 0xD7, 0x00);       // #FFD700 (Золотая корона 👑)
 };
 
 // Радиусы скругления и метрики колонок с поддержкой DPI через style::ConvertScale
