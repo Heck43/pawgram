@@ -34,6 +34,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/layers/generic_box.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/wrap/vertical_layout.h"
+#include <QtGui/QMouseEvent>
+#include "ui/search_field_controller.h"
+#include "ui/painter.h"
+#include "window/main_window.h"
+#include "styles/style_info.h"
 #include "window/window_session_controller.h"
 #include "styles/style_basic.h"
 #include "styles/style_boxes.h"
@@ -114,6 +119,19 @@ private:
 class CustomPanicSection : public Section<CustomPanicSection> {
 public:
 	CustomPanicSection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomAboutSection : public Section<CustomAboutSection> {
+public:
+	CustomAboutSection(
 		QWidget *parent,
 		not_null<Window::SessionController*> controller);
 
@@ -822,6 +840,403 @@ void CustomPanicSection::setupContent() {
 	Ui::ResizeFitChild(this, content);
 }
 
+// 6. О клиенте и Оптимизация
+const auto kAboutMeta = BuildHelper({
+	.id = CustomAboutSection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_section_info,
+	.icon = &st::menuIconCustomize,
+}, [](SectionBuilder &builder) {
+	builder.addSubsectionTitle(rpl::single(u"О проекте Pawgram"_q));
+	builder.addDividerText(rpl::single(
+		u"Pawgram Desktop — модифицированный клиент Telegram с открытым исходным кодом, "
+		"созданный для максимальной конфиденциальности, скорости работы и удобства.\n\n"
+		"Особенности сборки:\n"
+		"• Защита от трекеров и скрытие статусов (Ghost Mode)\n"
+		"• Встроенный туннель tg-ws-proxy через Cloudflare\n"
+		"• Игровой оверлей и оптимизация интерфейса\n"
+		"• Экстренная очистка данных (Panic Wipe)"_q));
+
+	builder.addSubsectionTitle(rpl::single(u"Система и оптимизация"_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Очистить оперативную память (RAM Optimizer)"_q),
+		.icon = &st::menuIconManage,
+		.onClick = [=] {
+			CustomFeatures::MemoryOptimizer::TrimWorkingSet();
+			builder.controller()->showToast(u"Оперативная память успешно оптимизирована!"_q);
+		},
+		.keywords = { u"ram"_q, u"memory"_q, u"optimize"_q, u"память"_q, u"очистка"_q },
+	});
+	builder.addDividerText(rpl::single(u"Сбрасывает графический кэш Qt и выгружает неактивные страницы из рабочей памяти процесса."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Сбросить настройки мода по умолчанию"_q),
+		.icon = &st::menuIconDelete,
+		.onClick = [=] {
+			builder.controller()->show(Ui::MakeConfirmBox({
+				.text = u"Вы действительно хотите сбросить все кастомные настройки Pawgram к значениям по умолчанию?"_q,
+				.confirmed = [=](Fn<void()> close) {
+					close();
+					CustomFeatures::GetConfig() = CustomFeatures::Config();
+					CustomFeatures::GetConfig().save();
+					builder.controller()->showToast(u"Настройки сброшены по умолчанию."_q);
+				},
+				.confirmText = u"Сбросить"_q,
+			}));
+		},
+		.keywords = { u"reset"_q, u"default"_q, u"сброс"_q },
+	});
+
+	builder.addDivider();
+	builder.addDividerText(rpl::single(
+		u"Версия сборки: Pawgram Desktop v7.0.9 (Release)\n"
+		"Базируется на Telegram Desktop 5.x\n"
+		"Разработчик: Heck"_q));
+});
+
+CustomAboutSection::CustomAboutSection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomAboutSection::title() {
+	return rpl::single(u"О клиенте"_q);
+}
+
+void CustomAboutSection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kAboutMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
+[[nodiscard]] std::vector<Type> AllCustomSections() {
+	return {
+		CustomPrivacySection::Id(),
+		CustomMessagesSection::Id(),
+		CustomProxySection::Id(),
+		CustomInterfaceSection::Id(),
+		CustomPanicSection::Id(),
+		CustomAboutSection::Id(),
+	};
+}
+
+void FillSearchResults(
+		not_null<Ui::VerticalLayout*> container,
+		not_null<Window::SessionController*> controller,
+		Fn<void(Type)> showOther,
+		const std::vector<Type> &sections,
+		const QString &query) {
+	container->clear();
+	const auto trimmed = query.trimmed().toLower();
+	if (trimmed.isEmpty()) {
+		container->resizeToWidth(container->width());
+		return;
+	}
+	const auto &registry = Builder::SearchRegistry::Instance();
+	int matchesCount = 0;
+	for (const auto &entry : registry.collectAll(&controller->session())) {
+		if (entry.id.isEmpty() || !ranges::contains(sections, entry.section)) {
+			continue;
+		}
+		bool matches = entry.title.toLower().contains(trimmed);
+		if (!matches) {
+			for (const auto &kw : entry.keywords) {
+				if (kw.toLower().contains(trimmed)) {
+					matches = true;
+					break;
+				}
+			}
+		}
+		if (matches) {
+			matchesCount++;
+			auto button = container->add(object_ptr<Ui::SettingsButton>(
+				container,
+				rpl::single(entry.title),
+				st::settingsButtonNoIcon));
+			button->setClickedCallback([=] {
+				crl::on_main(controller, [=] {
+					controller->setHighlightControlId(entry.id);
+					showOther(entry.section);
+				});
+			});
+			if (matchesCount >= 25) {
+				break;
+			}
+		}
+	}
+	if (matchesCount == 0) {
+		container->add(
+			object_ptr<Ui::FlatLabel>(
+				container,
+				tr::lng_search_tab_no_results(),
+				st::settingsSearchNoResults),
+			st::settingsSearchNoResultsPadding);
+	}
+	container->resizeToWidth(container->width());
+}
+
+void AddHeader(SectionBuilder &builder) {
+	builder.addControl({
+		.factory = [=](not_null<Ui::VerticalLayout*> container) {
+			auto result = object_ptr<Ui::VerticalLayout>(container);
+			const auto raw = result.data();
+			constexpr auto size = 64;
+			const auto logo = raw->add(
+				object_ptr<Ui::FixedHeightWidget>(raw, size),
+				QMargins(0, 16, 0, 0));
+			logo->paintRequest(
+			) | rpl::on_next([=] {
+				auto p = QPainter(logo);
+				auto hq = PainterHighQualityEnabler(p);
+				const auto left = (logo->width() - size) / 2;
+				p.drawImage(
+					QRect(left, 0, size, size),
+					Window::Logo());
+			}, logo->lifetime());
+			raw->add(
+				object_ptr<Ui::FlatLabel>(
+					raw,
+					rpl::single(u"Pawgram Desktop"_q),
+					st::boxTitle),
+				QMargins(0, 12, 0, 0),
+				style::al_top);
+			raw->add(
+				object_ptr<Ui::FlatLabel>(
+					raw,
+					rpl::single(u"v7.0.9 (Официальная кастомная сборка)"_q),
+					st::defaultFlatLabel),
+				QMargins(0, 4, 0, 14),
+				style::al_top);
+			return result;
+		},
+	});
+}
+
+struct CategoryCard {
+	QString title;
+	QString about;
+	const style::icon *icon = nullptr;
+	Type (*target)() = nullptr;
+};
+
+void AddCategoryGrid(SectionBuilder &builder) {
+	const auto controller = builder.controller();
+	if (!controller) {
+		return;
+	}
+	const auto showOther = builder.showOther();
+	builder.add([=](const WidgetContext &ctx) {
+		const auto cards = std::make_shared<std::vector<CategoryCard>>(
+			std::vector<CategoryCard>{
+			{
+				u"Приватность"_q,
+				u"Невидимка, чистка ссылок, скрытие историй"_q,
+				&st::menuIconLock,
+				CustomPrivacySection::Id,
+			},
+			{
+				u"Сообщения"_q,
+				u"Стикеры, медиа, кэш, ускорение загрузок"_q,
+				&st::menuIconChatBubble,
+				CustomMessagesSection::Id,
+			},
+			{
+				u"Сеть и прокси"_q,
+				u"tg-ws-proxy, Cloudflare, обход блокировок"_q,
+				&st::menuIconNetwork,
+				CustomProxySection::Id,
+			},
+			{
+				u"Интерфейс"_q,
+				u"Игровой оверлей, без рекламы, стиль"_q,
+				&st::menuIconPalette,
+				CustomInterfaceSection::Id,
+			},
+			{
+				u"Безопасность"_q,
+				u"Блокировка Win+L, экстренная очистка tdata"_q,
+				&st::menuIconDelete,
+				CustomPanicSection::Id,
+			},
+			{
+				u"О клиенте"_q,
+				u"Pawgram Desktop, оптимизация RAM, инфо"_q,
+				&st::menuIconCustomize,
+				CustomAboutSection::Id,
+			},
+		});
+		const auto count = int(cards->size());
+		const auto rows = (count + 1) / 2;
+		constexpr auto cardHeight = 118;
+		constexpr auto skip = 10;
+		auto result = object_ptr<Ui::FixedHeightWidget>(
+			ctx.container,
+			rows * cardHeight + (rows - 1) * skip);
+		const auto grid = result.data();
+		struct State {
+			int over = -1;
+			int pressed = -1;
+		};
+		const auto state = grid->lifetime().make_state<State>();
+
+		const auto cardRect = [=](int index) {
+			const auto width = (grid->width() - skip) / 2;
+			return QRect(
+				(index % 2) * (width + skip),
+				(index / 2) * (cardHeight + skip),
+				width,
+				cardHeight);
+		};
+		const auto cardAt = [=](QPoint point) {
+			for (auto i = 0; i != count; ++i) {
+				if (cardRect(i).contains(point)) {
+					return i;
+				}
+			}
+			return -1;
+		};
+		grid->paintRequest() | rpl::on_next([=] {
+			auto p = QPainter(grid);
+			auto hq = PainterHighQualityEnabler(p);
+			constexpr auto radius = 12;
+			constexpr auto tile = 40;
+			constexpr auto tileRadius = 10;
+			constexpr auto padding = 12;
+			constexpr auto titleSkip = 10;
+			constexpr auto aboutSkip = 2;
+			for (auto i = 0; i != count; ++i) {
+				const auto rect = cardRect(i);
+				p.setPen(Qt::NoPen);
+				p.setBrush((i == state->over)
+					? st::windowBgRipple
+					: st::windowBgOver);
+				p.drawRoundedRect(rect, radius, radius);
+				const auto tileRect = QRect(
+					rect.x() + padding,
+					rect.y() + padding,
+					tile,
+					tile);
+				p.setBrush(st::windowBgActive);
+				p.drawRoundedRect(
+					tileRect,
+					tileRadius,
+					tileRadius);
+				(*cards)[i].icon->paintInCenter(
+					p,
+					tileRect,
+					st::windowFgActive->c);
+				const auto textLeft = rect.x() + padding;
+				const auto textWidth = rect.width() - 2 * padding;
+				auto top = tileRect.y() + tile + titleSkip;
+				p.setPen(st::windowBoldFg);
+				p.setFont(st::semiboldFont);
+				p.drawText(
+					QRect(textLeft, top, textWidth, st::semiboldFont->height),
+					Qt::AlignLeft | Qt::AlignTop,
+					st::semiboldFont->elided((*cards)[i].title, textWidth));
+				top += st::semiboldFont->height + aboutSkip;
+				p.setPen(st::windowSubTextFg);
+				p.setFont(st::normalFont);
+				p.drawText(
+					QRect(
+						textLeft,
+						top,
+						textWidth,
+						rect.y() + rect.height() - top - padding / 2),
+					Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+					(*cards)[i].about);
+			}
+		}, grid->lifetime());
+		grid->setMouseTracking(true);
+		grid->events(
+		) | rpl::on_next([=](not_null<QEvent*> e) {
+			const auto type = e->type();
+			if (type == QEvent::MouseMove) {
+				const auto over = cardAt(
+					static_cast<QMouseEvent*>(e.get())->pos());
+				if (state->over != over) {
+					state->over = over;
+					grid->setCursor((over >= 0)
+						? style::cur_pointer
+						: style::cur_default);
+					grid->update();
+				}
+			} else if (type == QEvent::Leave) {
+				state->over = -1;
+				grid->update();
+			} else if (type == QEvent::MouseButtonPress) {
+				state->pressed = cardAt(
+					static_cast<QMouseEvent*>(e.get())->pos());
+			} else if (type == QEvent::MouseButtonRelease) {
+				const auto index = cardAt(
+					static_cast<QMouseEvent*>(e.get())->pos());
+				const auto pressed = std::exchange(state->pressed, -1);
+				if (index >= 0 && index == pressed) {
+					const auto target = (*cards)[index].target();
+					crl::on_main(controller, [=] {
+						showOther(target());
+					});
+				}
+			}
+		}, grid->lifetime());
+		return SectionBuilder::WidgetToAdd{
+			.widget = std::move(result),
+			.margin = QMargins(16, 12, 16, 4),
+		};
+	});
+}
+
+void AddCategorySearch(
+		SectionBuilder &builder,
+		std::vector<Type> sections,
+		FnMut<void()> content) {
+	const auto query = std::make_shared<rpl::variable<QString>>();
+	if (const auto controller = builder.controller()) {
+		const auto showOther = builder.showOther();
+		builder.add([=](const WidgetContext &ctx) {
+			auto result = object_ptr<Ui::VerticalLayout>(ctx.container);
+			const auto container = result.data();
+
+			auto searchController = std::make_unique<Ui::SearchFieldController>(QString());
+			auto rowView = searchController->createRowView(
+				container,
+				st::infoLayerMediaSearch);
+			const auto row = rowView.wrap.release();
+			row->show();
+			container->add(
+				object_ptr<Ui::RpWidget>::fromRaw(row),
+				QMargins(16, 12, 16, 4));
+
+			const auto results = container->add(
+				object_ptr<Ui::VerticalLayout>(container));
+
+			const auto searchState = container->lifetime().make_state<
+				std::unique_ptr<Ui::SearchFieldController>>(
+					std::move(searchController));
+
+			(*searchState)->queryChanges(
+			) | rpl::on_next([=](const QString &value) {
+				*query = value;
+				FillSearchResults(
+					results,
+					controller,
+					showOther,
+					sections,
+					value);
+			}, row->lifetime());
+
+			return SectionBuilder::WidgetToAdd{ .widget = std::move(result) };
+		});
+	}
+	builder.scope(std::move(content), query->value(
+	) | rpl::map([](const QString &value) {
+		return value.trimmed().isEmpty();
+	}));
+}
+
 // Главный раздел Pawgram
 const auto kCustomMeta = BuildHelper({
 	.id = CustomSection::Id(),
@@ -829,45 +1244,10 @@ const auto kCustomMeta = BuildHelper({
 	.title = &tr::lng_settings_features,
 	.icon = &st::menuIconCustomize,
 }, [](SectionBuilder &builder) {
-	builder.addSectionButton({
-		.title = rpl::single(u"Приватность и «Невидимка»"_q),
-		.targetSection = CustomPrivacySection::Id(),
-		.icon = { &st::menuIconStealth },
-		.keywords = { u"privacy"_q, u"ghost"_q, u"clean"_q, u"urls"_q, u"stories"_q },
+	AddCategorySearch(builder, AllCustomSections(), [&] {
+		AddHeader(builder);
+		AddCategoryGrid(builder);
 	});
-
-	builder.addSectionButton({
-		.title = rpl::single(u"Стикеры, Медиа и Загрузки"_q),
-		.targetSection = CustomMessagesSection::Id(),
-		.icon = { &st::menuIconStickers },
-		.keywords = { u"stickers"_q, u"media"_q, u"downloads"_q, u"fast"_q },
-	});
-
-	builder.addSectionButton({
-		.title = rpl::single(u"Обход блокировок и Сеть"_q),
-		.targetSection = CustomProxySection::Id(),
-		.icon = { &st::menuIconNetwork },
-		.keywords = { u"proxy"_q, u"tg-ws-proxy"_q, u"network"_q, u"cloudflare"_q },
-	});
-
-	builder.addSectionButton({
-		.title = rpl::single(u"Интерфейс, Гейминг и Стиль"_q),
-		.targetSection = CustomInterfaceSection::Id(),
-		.icon = { &st::menuIconPalette },
-		.keywords = { u"interface"_q, u"overlay"_q, u"game"_q, u"ads"_q, u"scroll"_q, u"radius"_q },
-	});
-
-	builder.addSectionButton({
-		.title = rpl::single(u"Безопасность и Экстренная очистка"_q),
-		.targetSection = CustomPanicSection::Id(),
-		.icon = { &st::menuIconDelete },
-		.keywords = { u"wipe"_q, u"panic"_q, u"lock"_q, u"passcode"_q, u"logout"_q },
-	});
-
-	builder.addDivider();
-	builder.addDividerText(rpl::single(
-		u"Pawgram Desktop v7.0.9\n"
-		"Кастомный клиент с защитой приватности, анти-удалением и встроенным прокси."_q));
 });
 
 CustomSection::CustomSection(

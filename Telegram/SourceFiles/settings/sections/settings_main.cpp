@@ -364,6 +364,15 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto controller = builder.controller();
 	const auto showOther = builder.showOther();
 
+	builder.addSectionButton({
+		.title = rpl::single(u"Настройки Pawgram"_q),
+		.targetSection = CustomSettingsId(),
+		.icon = { &st::menuIconCustomize },
+		.keywords = { u"pawgram"_q, u"custom"_q, u"mods"_q, u"speed"_q, u"privacy"_q, u"proxy"_q },
+	});
+	builder.addDivider();
+	builder.addSkip();
+
 	if (!session->supportMode()) {
 		builder.addSectionButton({
 			.title = tr::lng_settings_my_account(),
@@ -433,13 +442,6 @@ void BuildSectionButtons(SectionBuilder &builder) {
 		.targetSection = AdvancedId(),
 		.icon = { &st::menuIconManage },
 		.keywords = { u"performance"_q, u"proxy"_q, u"experimental"_q },
-	});
-
-	builder.addSectionButton({
-		.title = rpl::single(u"🐾 Настройки Pawgram"_q),
-		.targetSection = CustomSettingsId(),
-		.icon = { &st::menuIconCustomize },
-		.keywords = { u"pawgram"_q, u"custom"_q, u"mods"_q, u"speed"_q, u"privacy"_q, u"proxy"_q },
 	});
 
 	builder.addSectionButton({
