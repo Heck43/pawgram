@@ -878,7 +878,7 @@ const auto kAboutMeta = BuildHelper({
 				.text = u"Вы действительно хотите сбросить все кастомные настройки Pawgram к значениям по умолчанию?"_q,
 				.confirmed = [=](Fn<void()> close) {
 					close();
-					CustomFeatures::GetConfig() = CustomFeatures::Config();
+					CustomFeatures::GetConfig() = CustomFeatures::ClientConfig();
 					CustomFeatures::GetConfig().save();
 					builder.controller()->showToast(u"Настройки сброшены по умолчанию."_q);
 				},
@@ -1177,7 +1177,7 @@ void AddCategoryGrid(SectionBuilder &builder) {
 				if (index >= 0 && index == pressed) {
 					const auto target = (*cards)[index].target();
 					crl::on_main(controller, [=] {
-						showOther(target());
+						showOther(target);
 					});
 				}
 			}
