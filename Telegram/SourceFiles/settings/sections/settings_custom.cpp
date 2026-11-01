@@ -251,6 +251,55 @@ const auto kMessagesMeta = BuildHelper({
 	}
 	builder.addDividerText(rpl::single(u"Отображает все ваши наборы (включая архивированные) в панели выбора без лимита в 200 наборов."_q));
 
+	builder.addButton({
+		.title = rpl::single(u"Откешировать все стикеры"_q),
+		.icon = &st::menuIconDownload,
+		.onClick = [=] {
+			const auto controller = builder.controller();
+			const auto session = &controller->session();
+			auto &stickers = session->data().stickers();
+			const auto &active = stickers.setsOrder();
+			const auto &archived = stickers.archivedSetsOrder();
+			auto scheduled = 0;
+			const auto checkSet = [&](uint64 setId) {
+				const auto &sets = stickers.sets();
+				const auto it = sets.find(setId);
+				if (it != sets.end()) {
+					const auto set = it->second.get();
+					if (set->stickers.empty() && (set->flags & Data::StickersSetFlag::NotLoaded)) {
+						session->api().scheduleStickerSetRequest(set->id, set->accessHash);
+						++scheduled;
+					}
+					if (set->hasThumbnail()) {
+						set->loadThumbnail();
+					}
+					for (const auto cover : set->covers) {
+						if (cover->sticker()) {
+							cover->loadThumbnail(cover->stickerSetOrigin());
+						}
+					}
+				}
+			};
+			for (const auto id : active) {
+				checkSet(id);
+			}
+			for (const auto id : archived) {
+				checkSet(id);
+			}
+			if (scheduled > 0) {
+				session->api().requestStickerSets();
+			}
+			session->local().writeArchivedStickers();
+			session->local().writeInstalledStickers();
+			controller->showToast(
+				(scheduled > 0)
+					? QString("Кэширование запущено: загружается %1 наборов...").arg(scheduled)
+					: QString("Все стикеры уже откешированы (%1 наборов)!").arg(active.size() + archived.size()));
+		},
+		.keywords = { u"stickers"_q, u"cache"_q, u"preload"_q, u"offline"_q },
+	});
+	builder.addDividerText(rpl::single(u"Предзагружает и сохраняет все ваши стикерпаки и их миниатюры в локальный кэш для мгновенного открытия."_q));
+
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Умные загрузки"_q));
 

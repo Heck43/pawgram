@@ -204,6 +204,13 @@ DocumentData *StickersSet::lookupThumbnailDocument() const {
 		if (i != stickers.end()) {
 			return *i;
 		}
+		const auto j = ranges::find(
+			covers,
+			thumbnailDocumentId,
+			&DocumentData::id);
+		if (j != covers.end()) {
+			return *j;
+		}
 	}
 	return !stickers.empty()
 		? stickers.front()

@@ -223,16 +223,16 @@ StickerIcon &StickerIcon::operator=(StickerIcon&&) = default;
 StickerIcon::~StickerIcon() = default;
 
 void StickerIcon::ensureMediaCreated() const {
-	if (!sticker) {
-		return;
-	} else if (set->hasThumbnail()) {
+	if (set && set->hasThumbnail()) {
 		if (!thumbnailMedia) {
 			thumbnailMedia = set->createThumbnailView();
 			set->loadThumbnail();
 		}
-	} else if (!stickerMedia) {
-		stickerMedia = sticker->createMediaView();
-		stickerMedia->thumbnailWanted(sticker->stickerSetOrigin());
+	} else if (sticker) {
+		if (!stickerMedia) {
+			stickerMedia = sticker->createMediaView();
+			stickerMedia->thumbnailWanted(sticker->stickerSetOrigin());
+		}
 	}
 }
 
@@ -470,13 +470,10 @@ auto StickersListFooter::subiconInfo(int index) const -> IconInfo {
 void StickersListFooter::preloadImages() {
 	enumerateVisibleIcons([&](const IconInfo &info) {
 		const auto &icon = _icons[info.index];
-		if (const auto sticker = icon.sticker) {
-			Assert(icon.set != nullptr);
-			if (icon.set->hasThumbnail()) {
-				icon.set->loadThumbnail();
-			} else {
-				sticker->loadThumbnail(sticker->stickerSetOrigin());
-			}
+		if (icon.set && icon.set->hasThumbnail()) {
+			icon.set->loadThumbnail();
+		} else if (const auto sticker = icon.sticker) {
+			sticker->loadThumbnail(sticker->stickerSetOrigin());
 		}
 	});
 }
@@ -1287,9 +1284,12 @@ void StickersListFooter::paintSetIcon(
 			0,
 			anim::interpolate(height() / 2, 0, context.progress))
 		: QPoint();
-	if (icon.sticker) {
+	const auto hasThumb = icon.sticker || (icon.set && icon.set->hasThumbnail());
+	if (hasThumb) {
 		icon.ensureMediaCreated();
-		const_cast<StickersListFooter*>(this)->validateIconAnimation(icon);
+		if (icon.sticker) {
+			const_cast<StickersListFooter*>(this)->validateIconAnimation(icon);
+		}
 	}
 	if (context.expanding) {
 		if (icon.custom) {
@@ -1304,7 +1304,7 @@ void StickersListFooter::paintSetIcon(
 			p.translate(-center);
 		}
 	}
-	if (icon.sticker) {
+	if (hasThumb) {
 		prepareSetIcon(context, info, now, paused);
 		p.drawImage(info.adjustedLeft, _iconsTop, _setIconCache);
 	} else {
@@ -1329,7 +1329,7 @@ void StickersListFooter::prepareSetIcon(
 	_setIconCache.fill(Qt::transparent);
 	auto p = Painter(&_setIconCache);
 	paintSetIconToCache(p, context, info, now, paused);
-	if (!_icons[info.index].sticker) {
+	if (!_icons[info.index].sticker && (!_icons[info.index].set || !_icons[info.index].set->hasThumbnail())) {
 		return;
 	}
 	// Rounding the corners.
@@ -1351,6 +1351,17 @@ void StickersListFooter::paintSetIconToCache(
 		crl::time now,
 		bool paused) const {
 	const auto &icon = _icons[info.index];
+	const auto thumb = icon.thumbnailMedia
+		? icon.thumbnailMedia->image()
+		: (icon.sticker && icon.stickerMedia)
+		? icon.stickerMedia->thumbnail()
+		: nullptr;
+	if (thumb) {
+		const auto x = (_singleWidth - icon.pixw) / 2;
+		const auto y = (st().footer - icon.pixh) / 2;
+		p.drawImage(QRect(x, y, icon.pixw, icon.pixh), *thumb);
+		return;
+	}
 	if (icon.sticker) {
 		const auto origin = icon.sticker->stickerSetOrigin();
 		const auto thumb = icon.thumbnailMedia

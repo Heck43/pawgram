@@ -1672,6 +1672,9 @@ not_null<StickersSet*> Stickers::feedSet(
 		set->covers = StickersPack();
 		const auto cover = session().data().processDocument(data.vcover());
 		if (cover->sticker()) {
+			if (!cover->sticker()->set.id) {
+				cover->sticker()->set = set->identifier();
+			}
 			set->covers.push_back(cover);
 		}
 	}, [&](const MTPDstickerSetNoCovered &data) {
@@ -1796,9 +1799,13 @@ void Stickers::feedSetCovers(
 		not_null<StickersSet*> set,
 		const QVector<MTPDocument> &documents) {
 	set->covers = StickersPack();
+	const auto inputSet = set->identifier();
 	for (const auto &cover : documents) {
 		const auto document = session().data().processDocument(cover);
 		if (document->sticker()) {
+			if (!document->sticker()->set.id) {
+				document->sticker()->set = inputSet;
+			}
 			set->covers.push_back(document);
 		}
 	}

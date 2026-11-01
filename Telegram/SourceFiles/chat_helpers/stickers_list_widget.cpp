@@ -225,6 +225,7 @@ StickersListWidget::StickersListWidget(
 , _excludeSetId(descriptor.excludeSetId)
 , _updateItemsTimer([=] { updateItems(); })
 , _updateSetsTimer([=] { updateSets(); })
+, _refreshFromUpdatesTimer([=] { refreshStickers(); })
 , _trendingAddBgOver(
 	ImageRoundRadius::Large,
 	st::stickersTrendingAdd.textBgOver)
@@ -305,6 +306,16 @@ StickersListWidget::StickersListWidget(
 	) | rpl::skip(1) | rpl::map_to(
 		TabbedSelector::Action::Update
 	) | rpl::start_to_stream(_choosingUpdated, lifetime());
+
+	if (!_isEffects && !_isMasks) {
+		session().data().stickers().updated(
+			Data::StickersType::Stickers
+		) | rpl::on_next([=] {
+			if (isVisible() && !_refreshFromUpdatesTimer.isActive()) {
+				_refreshFromUpdatesTimer.callOnce(100);
+			}
+		}, lifetime());
+	}
 
 	if (_isEffects) {
 		refreshStickers();
@@ -390,12 +401,17 @@ void StickersListWidget::visibleTopBottomUpdated(
 			const auto fromSection = sectionInfoByOffset(visibleTop).section;
 			const auto toSection = sectionInfoByOffset(visibleBottom).section;
 			const auto count = int(_mySets.size());
+			auto anyScheduled = false;
 			for (auto i = fromSection; i <= toSection && i < count; ++i) {
 				const auto set = _mySets[i].set;
-				if (set && set->stickers.empty() && (set->flags & SetFlag::NotLoaded)) {
+				if (set && set->stickers.empty() && (set->flags & SetFlag::NotLoaded) && !_requestedSets.contains(set->id)) {
+					_requestedSets.emplace(set->id);
 					session().api().scheduleStickerSetRequest(set->id, set->accessHash);
-					session().api().requestStickerSets();
+					anyScheduled = true;
 				}
+			}
+			if (anyScheduled) {
+				session().api().requestStickerSets();
 			}
 		}
 	}
@@ -1581,7 +1597,8 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 
 	const auto now = crl::now();
 	const auto paused = On(PowerSaving::kStickersPanel)
-		|| this->paused();
+		|| this->paused()
+		|| (now < _lastScrolledAt + kMinAfterScrollDelay);
 	if (sets.empty()
 		&& _searchShortcutSets.empty()
 		&& _section == Section::Search) {
@@ -2224,28 +2241,38 @@ void StickersListWidget::paintSticker(
 
 	auto lottieFrame = QImage();
 	if (sticker.lottie && sticker.lottie->ready()) {
-		auto request = Lottie::FrameRequest();
-		request.box = boundingBoxSize() * style::DevicePixelRatio();
-		lottieFrame = sticker.lottie->frame(request);
-		p.drawImage(
-			QRect(ppos, lottieFrame.size() / style::DevicePixelRatio()),
-			lottieFrame);
-		if (sticker.savedFrame.isNull()) {
-			sticker.savedFrame = lottieFrame;
-			sticker.savedFrame.setDevicePixelRatio(style::DevicePixelRatio());
-			sticker.savedFrameFor = _singleSize;
+		if (paused && !sticker.savedFrame.isNull() && (sticker.savedFrameFor == _singleSize)) {
+			p.drawImage(ppos, sticker.savedFrame);
+		} else {
+			auto request = Lottie::FrameRequest();
+			request.box = boundingBoxSize() * style::DevicePixelRatio();
+			lottieFrame = sticker.lottie->frame(request);
+			p.drawImage(
+				QRect(ppos, lottieFrame.size() / style::DevicePixelRatio()),
+				lottieFrame);
+			if (sticker.savedFrame.isNull()) {
+				sticker.savedFrame = lottieFrame;
+				sticker.savedFrame.setDevicePixelRatio(style::DevicePixelRatio());
+				sticker.savedFrameFor = _singleSize;
+			}
+			if (!paused) {
+				set.lottiePlayer->unpause(sticker.lottie);
+			}
 		}
-		set.lottiePlayer->unpause(sticker.lottie);
 	} else if (sticker.webm && sticker.webm->started()) {
-		const auto frame = sticker.webm->current(
-			{ .frame = size, .keepAlpha = true },
-			paused ? 0 : now);
-		if (sticker.savedFrame.isNull()) {
-			sticker.savedFrame = frame;
-			sticker.savedFrame.setDevicePixelRatio(style::DevicePixelRatio());
-			sticker.savedFrameFor = _singleSize;
+		if (paused && !sticker.savedFrame.isNull() && (sticker.savedFrameFor == _singleSize)) {
+			p.drawImage(ppos, sticker.savedFrame);
+		} else {
+			const auto frame = sticker.webm->current(
+				{ .frame = size, .keepAlpha = true },
+				paused ? 0 : now);
+			if (sticker.savedFrame.isNull()) {
+				sticker.savedFrame = frame;
+				sticker.savedFrame.setDevicePixelRatio(style::DevicePixelRatio());
+				sticker.savedFrameFor = _singleSize;
+			}
+			p.drawImage(ppos, frame);
 		}
-		p.drawImage(ppos, frame);
 	} else {
 		const auto image = media->getStickerSmall();
 		const auto useSavedFrame = !sticker.savedFrame.isNull()
@@ -3577,11 +3604,11 @@ std::vector<StickerIcon> StickersListWidget::fillIcons() {
 			? QSize(
 				set->thumbnailLocation().width(),
 				set->thumbnailLocation().height())
-			: s->hasThumbnail()
+			: (s && s->hasThumbnail())
 			? QSize(
 				s->thumbnailLocation().width(),
 				s->thumbnailLocation().height())
-			: QSize();
+			: QSize(side, side);
 		const auto pix = size.scaled(side, side, Qt::KeepAspectRatio);
 		result.emplace_back(set, s, pix.width(), pix.height());
 	}
@@ -3824,8 +3851,11 @@ void StickersListWidget::showStickerSet(uint64 setId) {
 		const auto &sets = session().data().stickers().sets();
 		const auto it = sets.find(setId);
 		if (it != sets.cend() && it->second->stickers.empty() && (it->second->flags & SetFlag::NotLoaded)) {
-			session().api().scheduleStickerSetRequest(it->second->id, it->second->accessHash);
-			session().api().requestStickerSets();
+			if (!_requestedSets.contains(it->second->id)) {
+				_requestedSets.emplace(it->second->id);
+				session().api().scheduleStickerSetRequest(it->second->id, it->second->accessHash);
+				session().api().requestStickerSets();
+			}
 		}
 	}
 
