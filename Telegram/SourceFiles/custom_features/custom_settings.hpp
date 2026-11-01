@@ -19,6 +19,7 @@ struct ClientConfig {
     // 2. Стикеры и медиа
     bool unlimitedRecentStickers = true;   // Расширенный список стикеров (300 шт.)
     int recentStickersMaxCount = 300;      // Лимит недавних стикеров (300)
+    bool unlimitedStickers = true;         // Безлимитные стикерпаки (отображать архивированные)
 
     // 3. Гейминг и система
     bool enableInGameOverlay = true;       // Оверлей в играх (Shift + ~)
@@ -68,6 +69,7 @@ struct ClientConfig {
         autoWipeOnLogout = s.value("autoWipeOnLogout", autoWipeOnLogout).toBool();
         unlimitedRecentStickers = s.value("unlimitedRecentStickers", unlimitedRecentStickers).toBool();
         recentStickersMaxCount = s.value("recentStickersMaxCount", recentStickersMaxCount).toInt();
+        unlimitedStickers = s.value("unlimitedStickers", unlimitedStickers).toBool();
         enableInGameOverlay = s.value("enableInGameOverlay", enableInGameOverlay).toBool();
         overlayAllGames = s.value("overlayAllGames", overlayAllGames).toBool();
         overlayAllowedGames = s.value("overlayAllowedGames", overlayAllowedGames).toStringList();
@@ -115,6 +117,7 @@ struct ClientConfig {
         s.setValue("autoWipeOnLogout", autoWipeOnLogout);
         s.setValue("unlimitedRecentStickers", unlimitedRecentStickers);
         s.setValue("recentStickersMaxCount", recentStickersMaxCount);
+        s.setValue("unlimitedStickers", unlimitedStickers);
         s.setValue("enableInGameOverlay", enableInGameOverlay);
         s.setValue("overlayAllGames", overlayAllGames);
         s.setValue("overlayAllowedGames", overlayAllowedGames);

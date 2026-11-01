@@ -237,6 +237,20 @@ const auto kMessagesMeta = BuildHelper({
 	}
 	builder.addDividerText(rpl::single(u"Увеличивает вместимость списка недавно использованных стикеров с 20 до 300 штук."_q));
 
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/unlimited_all_stickers"_q,
+		.title = rpl::single(u"Безлимитные стикерпаки в панели"_q),
+		.checked = CustomFeatures::GetConfig().unlimitedStickers,
+		.keywords = { u"stickers"_q, u"packs"_q, u"archived"_q, u"unlimited"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().unlimitedStickers = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+	builder.addDividerText(rpl::single(u"Отображает все ваши наборы (включая архивированные) в панели выбора без лимита в 200 наборов."_q));
+
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Умные загрузки"_q));
 

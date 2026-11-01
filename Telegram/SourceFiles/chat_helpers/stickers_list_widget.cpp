@@ -75,6 +75,8 @@ namespace ChatHelpers {
 
 namespace {
 
+base::flat_set<not_null<Main::Session*>> LoadedArchivedSessions;
+
 constexpr auto kSearchRequestDelay = 400;
 constexpr auto kRecentDisplayLimit = 20;
 constexpr auto kPreloadOfficialPages = 4;
@@ -3044,7 +3046,9 @@ void StickersListWidget::refreshEffects() {
 void StickersListWidget::refreshMySets() {
 	auto wasSets = base::take(_mySets);
 	_favedStickersMap.clear();
-	_mySets.reserve(defaultSetsOrder().size() + 3);
+	_mySets.reserve(defaultSetsOrder().size()
+		+ (CustomFeatures::GetConfig().unlimitedStickers ? session().data().stickers().archivedSetsOrder().size() : 0)
+		+ 3);
 
 	refreshFavedStickers();
 	refreshRecentStickers(false);
@@ -3054,6 +3058,42 @@ void StickersListWidget::refreshMySets() {
 		const auto externalLayout = false;
 		appendSet(_mySets, setId, externalLayout, AppendSkip::Archived);
 	}
+
+	if (CustomFeatures::GetConfig().unlimitedStickers) {
+		const auto &defaultOrder = defaultSetsOrder();
+		for (const auto setId : session().data().stickers().archivedSetsOrder()) {
+			if (defaultOrder.indexOf(setId) >= 0) {
+				continue;
+			}
+			const auto externalLayout = false;
+			appendSet(_mySets, setId, externalLayout, AppendSkip::None);
+		}
+
+		if (!LoadedArchivedSessions.contains(&session())) {
+			LoadedArchivedSessions.emplace(&session());
+			session().api().request(MTPmessages_GetArchivedStickers(
+				MTP_flags(0),
+				MTP_long(0),
+				MTP_int(200)
+			)).done(crl::guard(this, [=, s = &session()](const MTPmessages_ArchivedStickers &result) {
+				if (result.type() == mtpc_messages_archivedStickers) {
+					auto &stickers = result.c_messages_archivedStickers();
+					auto &archived = s->data().stickers().archivedSetsOrderRef();
+					for (const auto &data : stickers.vsets().v) {
+						const auto set = s->data().stickers().feedSet(data);
+						if (archived.indexOf(set->id) < 0) {
+							archived.push_back(set->id);
+						}
+						if (set->flags & SetFlag::NotLoaded) {
+							s->api().scheduleStickerSetRequest(set->id, set->accessHash);
+						}
+					}
+					refreshMySets();
+				}
+			})).send();
+		}
+	}
+
 	refreshMegagroupStickers(GroupStickersPlace::Hidden);
 
 	takeHeavyData(_mySets, wasSets);
