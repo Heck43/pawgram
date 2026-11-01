@@ -272,7 +272,7 @@ void Stickers::incrementSticker(not_null<DocumentData*> document) {
 		writeRecentStickers = true;
 	}
 
-	// Remove that sticker from old recent, now it is in cloud recent stickers.
+	// Maintain local recent pack
 	bool writeOldRecent = false;
 	auto &recent = getRecentPack();
 	for (auto i = recent.begin(), e = recent.end(); i != e; ++i) {
@@ -282,13 +282,18 @@ void Stickers::incrementSticker(not_null<DocumentData*> document) {
 			break;
 		}
 	}
-	const auto recentLimit = CustomFeatures::GetConfig().unlimitedRecentStickers
-		? std::max(300, session().serverConfig().stickersRecentLimit)
-		: session().serverConfig().stickersRecentLimit;
-	while (!recent.isEmpty()
-		&& (set->stickers.size() + recent.size() > recentLimit)) {
+	if (CustomFeatures::GetConfig().unlimitedRecentStickers) {
+		recent.push_front(qMakePair(document, base::unixtime::now()));
+		while (recent.size() > 300) {
+			recent.pop_back();
+		}
 		writeOldRecent = true;
-		recent.pop_back();
+	} else {
+		while (!recent.isEmpty()
+			&& (set->stickers.size() + recent.size() > session().serverConfig().stickersRecentLimit)) {
+			writeOldRecent = true;
+			recent.pop_back();
+		}
 	}
 
 	if (writeOldRecent) {
@@ -912,12 +917,14 @@ void Stickers::specialSetReceived(
 
 		auto writeRecent = false;
 		auto &recent = getRecentPack();
-		for (auto i = recent.begin(); i != recent.cend();) {
-			if (set->stickers.indexOf(i->first) >= 0 && pack.indexOf(i->first) < 0) {
-				i = recent.erase(i);
-				writeRecent = true;
-			} else {
-				++i;
+		if (!CustomFeatures::GetConfig().unlimitedRecentStickers) {
+			for (auto i = recent.begin(); i != recent.cend();) {
+				if (set->stickers.indexOf(i->first) >= 0 && pack.indexOf(i->first) < 0) {
+					i = recent.erase(i);
+					writeRecent = true;
+				} else {
+					++i;
+				}
 			}
 		}
 

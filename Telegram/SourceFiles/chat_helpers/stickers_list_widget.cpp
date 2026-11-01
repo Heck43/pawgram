@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/stickers_list_widget.h"
 
+#include <functional>
+
 #include "custom_features/custom_settings.hpp"
 #include "base/options.h"
 #include "base/timer_rpl.h"
@@ -383,6 +385,18 @@ void StickersListWidget::visibleTopBottomUpdated(
 		checkVisibleLottie();
 		if (_section == Section::Search) {
 			checkPaginateSearchStickers(visibleTop, visibleBottom);
+		}
+		if (CustomFeatures::GetConfig().unlimitedStickers) {
+			const auto fromSection = sectionInfoByOffset(visibleTop).section;
+			const auto toSection = sectionInfoByOffset(visibleBottom).section;
+			const auto count = int(_mySets.size());
+			for (auto i = fromSection; i <= toSection && i < count; ++i) {
+				const auto set = _mySets[i].set;
+				if (set && set->stickers.empty() && (set->flags & SetFlag::NotLoaded)) {
+					session().api().scheduleStickerSetRequest(set->id, set->accessHash);
+					session().api().requestStickerSets();
+				}
+			}
 		}
 	}
 	if (_footer) {
@@ -3071,26 +3085,33 @@ void StickersListWidget::refreshMySets() {
 
 		if (!LoadedArchivedSessions.contains(&session())) {
 			LoadedArchivedSessions.emplace(&session());
-			session().api().request(MTPmessages_GetArchivedStickers(
-				MTP_flags(0),
-				MTP_long(0),
-				MTP_int(200)
-			)).done(crl::guard(this, [=, s = &session()](const MTPmessages_ArchivedStickers &result) {
-				if (result.type() == mtpc_messages_archivedStickers) {
-					auto &stickers = result.c_messages_archivedStickers();
-					auto &archived = s->data().stickers().archivedSetsOrderRef();
-					for (const auto &data : stickers.vsets().v) {
-						const auto set = s->data().stickers().feedSet(data);
-						if (archived.indexOf(set->id) < 0) {
-							archived.push_back(set->id);
+			auto loadMore = std::make_shared<std::function<void(uint64)>>();
+			*loadMore = [this, s = &session(), loadMore](uint64 offsetId) {
+				s->api().request(MTPmessages_GetArchivedStickers(
+					MTP_flags(0),
+					MTP_long(offsetId),
+					MTP_int(100)
+				)).done(crl::guard(this, [=](const MTPmessages_ArchivedStickers &result) {
+					if (result.type() == mtpc_messages_archivedStickers) {
+						const auto &stickers = result.c_messages_archivedStickers();
+						auto &archived = s->data().stickers().archivedSetsOrderRef();
+						uint64 lastId = 0;
+						for (const auto &data : stickers.vsets().v) {
+							const auto set = s->data().stickers().feedSet(data);
+							lastId = set->id;
+							if (archived.indexOf(set->id) < 0) {
+								archived.push_back(set->id);
+							}
 						}
-						if (set->flags & SetFlag::NotLoaded) {
-							s->api().scheduleStickerSetRequest(set->id, set->accessHash);
+						if (!stickers.vsets().v.isEmpty() && stickers.vsets().v.size() >= 100 && archived.size() < 1000) {
+							(*loadMore)(lastId);
+						} else {
+							refreshStickers();
 						}
 					}
-					refreshMySets();
-				}
-			})).send();
+				})).send();
+			};
+			(*loadMore)(0);
 		}
 	}
 
@@ -3231,7 +3252,7 @@ bool StickersListWidget::appendSet(
 	const auto &sets = session().data().stickers().sets();
 	auto it = sets.find(setId);
 	if (it == sets.cend()
-		|| (!externalLayout && it->second->stickers.isEmpty())) {
+		|| (!externalLayout && it->second->stickers.isEmpty() && it->second->covers.isEmpty())) {
 		return false;
 	}
 	const auto set = it->second.get();
@@ -3248,7 +3269,7 @@ bool StickersListWidget::appendSet(
 	}
 	const auto skipPremium = !session().premiumPossible();
 	auto elements = PrepareStickers(
-		((set->stickers.empty() && externalLayout)
+		(set->stickers.empty()
 			? set->covers
 			: set->stickers),
 		skipPremium);
@@ -3317,9 +3338,10 @@ auto StickersListWidget::collectRecentStickers() -> std::vector<Sticker> {
 	_custom.reserve(cloudCount + recent.size() + customCount);
 
 	auto add = [&](not_null<DocumentData*> document, bool custom) {
-		if (result.size() >= kRecentDisplayLimit
-			&& !OptionUnlimitedRecentStickers.value()
-			&& !CustomFeatures::GetConfig().unlimitedRecentStickers) {
+		const auto limit = CustomFeatures::GetConfig().unlimitedRecentStickers
+			? 300
+			: kRecentDisplayLimit;
+		if (result.size() >= limit && !OptionUnlimitedRecentStickers.value()) {
 			return;
 		}
 		const auto i = ranges::find(result, document, &Sticker::document);
@@ -3797,6 +3819,15 @@ void StickersListWidget::showStickerSet(uint64 setId) {
 	});
 	scrollTo(y);
 	_scrollUpdated.fire({});
+
+	if (CustomFeatures::GetConfig().unlimitedStickers) {
+		const auto &sets = session().data().stickers().sets();
+		const auto it = sets.find(setId);
+		if (it != sets.cend() && it->second->stickers.empty() && (it->second->flags & SetFlag::NotLoaded)) {
+			session().api().scheduleStickerSetRequest(it->second->id, it->second->accessHash);
+			session().api().requestStickerSets();
+		}
+	}
 
 	if (needRefresh) {
 		refreshIcons(ValidateIconAnimations::Scroll);
