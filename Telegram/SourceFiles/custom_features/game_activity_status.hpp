@@ -10,6 +10,8 @@
 #include <QTimer>
 #include <QDateTime>
 #include "custom_features/custom_settings.hpp"
+#include <crl/crl_async.h>
+#include <crl/crl_on_main.h>
 
 namespace CustomFeatures {
 
@@ -91,34 +93,39 @@ private:
             return;
         }
 
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapshot == INVALID_HANDLE_VALUE) return;
+        const auto games = _knownGames;
+        crl::async([this, games]() {
+            HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (snapshot == INVALID_HANDLE_VALUE) return;
 
-        PROCESSENTRY32W pe;
-        pe.dwSize = sizeof(PROCESSENTRY32W);
+            PROCESSENTRY32W pe;
+            pe.dwSize = sizeof(PROCESSENTRY32W);
 
-        DetectedGame foundGame;
-        if (Process32FirstW(snapshot, &pe)) {
-            do {
-                const QString procName = QString::fromWCharArray(pe.szExeFile);
-                for (const auto &g : _knownGames) {
-                    if (procName.compare(g.processName, Qt::CaseInsensitive) == 0) {
-                        foundGame = g;
-                        break;
+            DetectedGame foundGame;
+            if (Process32FirstW(snapshot, &pe)) {
+                do {
+                    const QString procName = QString::fromWCharArray(pe.szExeFile);
+                    for (const auto &g : games) {
+                        if (procName.compare(g.processName, Qt::CaseInsensitive) == 0) {
+                            foundGame = g;
+                            break;
+                        }
+                    }
+                    if (!foundGame.processName.isEmpty()) break;
+                } while (Process32NextW(snapshot, &pe));
+            }
+            CloseHandle(snapshot);
+
+            crl::on_main([this, foundGame]() {
+                if (foundGame.processName != _currentGame.processName) {
+                    _currentGame = foundGame;
+                    const bool playing = !foundGame.processName.isEmpty();
+                    if (_callback) {
+                        _callback(_currentGame, playing);
                     }
                 }
-                if (!foundGame.processName.isEmpty()) break;
-            } while (Process32NextW(snapshot, &pe));
-        }
-        CloseHandle(snapshot);
-
-        if (foundGame.processName != _currentGame.processName) {
-            _currentGame = foundGame;
-            const bool playing = !foundGame.processName.isEmpty();
-            if (_callback) {
-                _callback(_currentGame, playing);
-            }
-        }
+            });
+        });
     }
 
     QVector<DetectedGame> _knownGames;

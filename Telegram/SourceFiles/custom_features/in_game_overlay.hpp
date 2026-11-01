@@ -1030,12 +1030,12 @@ public:
 
     void updateState() {
         if (GetConfig().enableInGameOverlay) {
-            installHook();
+            registerHotKeys();
             if (!_overlayWidget) {
                 _overlayWidget = new InGameOverlayWidget();
             }
         } else {
-            removeHook();
+            unregisterHotKeys();
             if (_overlayWidget) {
                 _overlayWidget->hide();
             }
@@ -1116,14 +1116,8 @@ public:
     }
 
     void cleanup() {
-        removeHook();
-        if (_hwnd) {
-            UnregisterHotKey(_hwnd, 0x5447);
-            UnregisterHotKey(_hwnd, 0x5448);
-            UnregisterHotKey(_hwnd, 0x5449);
-            UnregisterHotKey(_hwnd, 0x544A);
-            _hwnd = nullptr;
-        }
+        unregisterHotKeys();
+        _hwnd = nullptr;
         if (_overlayWidget) {
             delete _overlayWidget;
             _overlayWidget = nullptr;
@@ -1131,61 +1125,28 @@ public:
     }
 
 private:
-    void installHook() {
-        if (!_hook) {
-            _hook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(nullptr), 0);
-        }
-        if (_hwnd) {
+    void registerHotKeys() {
+        if (_hwnd && !_hotkeysRegistered) {
             RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);
             RegisterHotKey(_hwnd, 0x5448, MOD_SHIFT, VK_F11);
             RegisterHotKey(_hwnd, 0x5449, MOD_CONTROL | MOD_SHIFT, 'O');
             RegisterHotKey(_hwnd, 0x544A, MOD_ALT, VK_OEM_3);
+            _hotkeysRegistered = true;
         }
     }
 
-    void removeHook() {
-        if (_hook) {
-            UnhookWindowsHookEx(_hook);
-            _hook = nullptr;
+    void unregisterHotKeys() {
+        if (_hwnd && _hotkeysRegistered) {
+            UnregisterHotKey(_hwnd, 0x5447);
+            UnregisterHotKey(_hwnd, 0x5448);
+            UnregisterHotKey(_hwnd, 0x5449);
+            UnregisterHotKey(_hwnd, 0x544A);
+            _hotkeysRegistered = false;
         }
-    }
-
-    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-        if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
-            auto *p = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
-            const bool shift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-            const bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            const bool alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-
-            bool triggered = false;
-            // Shift + ~ (VK_OEM_3 = 0xC0)
-            if (shift && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
-                triggered = true;
-            }
-            // Shift + F11
-            else if (shift && p->vkCode == VK_F11) {
-                triggered = true;
-            }
-            // Ctrl + Shift + O
-            else if (ctrl && shift && p->vkCode == 'O') {
-                triggered = true;
-            }
-            // Alt + ~
-            else if (alt && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
-                triggered = true;
-            }
-
-            if (triggered && GetConfig().enableInGameOverlay) {
-                crl::on_main([] {
-                    Instance().triggerOverlay();
-                });
-            }
-        }
-        return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
     HWND _hwnd = nullptr;
-    HHOOK _hook = nullptr;
+    bool _hotkeysRegistered = false;
     InGameOverlayWidget *_overlayWidget = nullptr;
 };
 

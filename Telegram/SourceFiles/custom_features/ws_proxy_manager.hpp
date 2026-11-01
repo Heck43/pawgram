@@ -219,14 +219,14 @@ public:
 #endif
 		_isRunning.store(false);
 
-		// Revert Telegram proxy to System/Disabled if current was our local proxy
+		// Revert Telegram proxy to Disabled if current was our local proxy
 		// ONLY if the app is still active and not quitting
 		if (Core::IsAppLaunched() && !Core::Quitting()) {
 			crl::on_main([] {
 				if (Core::IsAppLaunched() && !Core::Quitting()) {
 					auto &settings = Core::App().settings().proxy();
 					if (settings.isEnabled() && settings.selected().host == u"127.0.0.1"_q) {
-						Core::App().setCurrentProxy(MTP::ProxyData(), MTP::ProxyData::Settings::System);
+						Core::App().setCurrentProxy(settings.selected(), MTP::ProxyData::Settings::Disabled);
 					}
 				}
 			});
@@ -249,6 +249,10 @@ public:
 				return;
 			}
 
+			if (!isProxyRunning()) {
+				return;
+			}
+
 			auto &cfg = GetConfig();
 			if (!cfg.wsProxyAutoConfigTg) {
 				return;
@@ -258,22 +262,22 @@ public:
 			proxy.type = MTP::ProxyData::Type::Mtproto;
 			proxy.host = u"127.0.0.1"_q;
 			proxy.port = cfg.wsProxyPort;
-			proxy.password = cfg.wsProxySecret;
+			proxy.password = cfg.wsProxySecret.startsWith(u"dd"_q)
+				? cfg.wsProxySecret
+				: (u"dd"_q + cfg.wsProxySecret);
 
 			auto &settings = Core::App().settings().proxy();
 
-			bool inList = false;
+			// Replace or remove any previous local proxy entry to prevent stale credentials
 			for (const auto &item : settings.list()) {
 				if (item.type == MTP::ProxyData::Type::Mtproto
 					&& item.host == proxy.host
 					&& item.port == proxy.port) {
-					inList = true;
+					settings.removeFromList(item);
 					break;
 				}
 			}
-			if (!inList) {
-				settings.addToList(proxy);
-			}
+			settings.addToList(proxy);
 
 			Core::App().setCurrentProxy(proxy, MTP::ProxyData::Settings::Enabled);
 		});
@@ -334,6 +338,9 @@ private:
 
 	void ensureSecret() {
 		auto &cfg = GetConfig();
+		if (cfg.wsProxySecret.startsWith(u"dd"_q)) {
+			cfg.wsProxySecret = cfg.wsProxySecret.mid(2);
+		}
 		if (cfg.wsProxySecret.length() != 32) {
 			static const char hexChars[] = "0123456789abcdef";
 			QString secret;
