@@ -50,7 +50,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@v4
 
       - name: Prepare directories
         run: |
