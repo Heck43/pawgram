@@ -1351,17 +1351,6 @@ void StickersListFooter::paintSetIconToCache(
 		crl::time now,
 		bool paused) const {
 	const auto &icon = _icons[info.index];
-	const auto thumb = icon.thumbnailMedia
-		? icon.thumbnailMedia->image()
-		: (icon.sticker && icon.stickerMedia)
-		? icon.stickerMedia->thumbnail()
-		: nullptr;
-	if (thumb) {
-		const auto x = (_singleWidth - icon.pixw) / 2;
-		const auto y = (st().footer - icon.pixh) / 2;
-		p.drawImage(QRect(x, y, icon.pixw, icon.pixh), *thumb);
-		return;
-	}
 	if (icon.sticker) {
 		const auto origin = icon.sticker->stickerSetOrigin();
 		const auto thumb = icon.thumbnailMedia
@@ -1424,6 +1413,12 @@ void StickersListFooter::paintSetIconToCache(
 				icon.savedFrame = pixmap.toImage();
 			}
 			p.drawPixmapLeft(x, y, width(), pixmap);
+		}
+	} else if (icon.set && icon.set->hasThumbnail()) {
+		if (const auto image = icon.thumbnailMedia ? icon.thumbnailMedia->image() : nullptr) {
+			const auto x = (_singleWidth - icon.pixw) / 2;
+			const auto y = (st().footer - icon.pixh) / 2;
+			p.drawImage(QRect(x, y, icon.pixw, icon.pixh), *image);
 		}
 	} else if (icon.megagroup) {
 		const auto size = st::stickerGroupCategorySize;

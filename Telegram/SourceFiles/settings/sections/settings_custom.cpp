@@ -8,6 +8,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "settings/sections/settings_custom.h"
 
+#include "data/data_session.h"
+#include "data/data_document.h"
+#include "data/stickers/data_stickers.h"
+#include "data/stickers/data_stickers_set.h"
+#include "apiwrap.h"
+#include "storage/storage_account.h"
+
 #include "custom_features/custom_settings.hpp"
 #include "custom_features/session_wipe.hpp"
 #include "custom_features/in_game_overlay.hpp"
@@ -256,6 +263,9 @@ const auto kMessagesMeta = BuildHelper({
 		.icon = &st::menuIconDownload,
 		.onClick = [=] {
 			const auto controller = builder.controller();
+			if (!controller) {
+				return;
+			}
 			const auto session = &controller->session();
 			auto &stickers = session->data().stickers();
 			const auto &active = stickers.setsOrder();

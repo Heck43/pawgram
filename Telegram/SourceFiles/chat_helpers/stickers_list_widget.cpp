@@ -2243,6 +2243,7 @@ void StickersListWidget::paintSticker(
 	if (sticker.lottie && sticker.lottie->ready()) {
 		if (paused && !sticker.savedFrame.isNull() && (sticker.savedFrameFor == _singleSize)) {
 			p.drawImage(ppos, sticker.savedFrame);
+			lottieFrame = sticker.savedFrame;
 		} else {
 			auto request = Lottie::FrameRequest();
 			request.box = boundingBoxSize() * style::DevicePixelRatio();
