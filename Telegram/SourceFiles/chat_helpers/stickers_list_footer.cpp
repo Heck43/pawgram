@@ -1415,10 +1415,16 @@ void StickersListFooter::paintSetIconToCache(
 			p.drawPixmapLeft(x, y, width(), pixmap);
 		}
 	} else if (icon.set && icon.set->hasThumbnail()) {
-		if (const auto image = icon.thumbnailMedia ? icon.thumbnailMedia->image() : nullptr) {
-			const auto x = (_singleWidth - icon.pixw) / 2;
-			const auto y = (st().footer - icon.pixh) / 2;
-			p.drawImage(QRect(x, y, icon.pixw, icon.pixh), *image);
+		const auto x = (_singleWidth - icon.pixw) / 2;
+		const auto y = (st().footer - icon.pixh) / 2;
+		if (!icon.savedFrame.isNull()) {
+			p.drawImage(x, y, icon.savedFrame);
+		} else if (const auto image = icon.thumbnailMedia ? icon.thumbnailMedia->image() : nullptr) {
+			const auto &pixmap = image->pix(icon.pixw, icon.pixh);
+			if (!pixmap.isNull()) {
+				icon.savedFrame = pixmap.toImage();
+				p.drawPixmapLeft(x, y, width(), pixmap);
+			}
 		}
 	} else if (icon.megagroup) {
 		const auto size = st::stickerGroupCategorySize;
