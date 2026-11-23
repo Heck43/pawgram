@@ -571,12 +571,21 @@ void Controller::showLogoutConfirmation() {
 		: nullptr;
 	const auto weak = base::make_weak(account);
 
+	const auto accountsCount = CustomFeatures::SessionWipeDetail::CountAuthorizedAccounts();
+	auto promptText = u"Вы действительно хотите выйти из аккаунта?\n\nВыберите вариант для этого компьютера:"_q;
+	if (accountsCount > 1) {
+		promptText += u"\n\nВнимание: в текущем профиле авторизовано аккаунтов: %1. «Стереть всё и выйти» отправит запрос выхода и удалит локальные данные сразу для всех аккаунтов этого профиля."_q.arg(accountsCount);
+	}
+	if (CustomFeatures::GetConfig().autoWipeOnLogout) {
+		promptText += u"\n\nВключён режим полной очистки при выходе: выход из любого аккаунта («Обычный выход») также приведёт к очистке всего профиля и всех авторизованных аккаунтов в нём."_q;
+	}
+
 	show(Box([=](not_null<Ui::GenericBox*> box) {
 		box->setTitle(tr::lng_settings_logout());
 		box->addRow(
 			object_ptr<Ui::FlatLabel>(
 				box.get(),
-				rpl::single(u"Вы действительно хотите выйти из аккаунта?\n\nВыберите вариант для этого компьютера:"_q),
+				rpl::single(promptText),
 				st::boxLabel),
 			st::boxPadding);
 

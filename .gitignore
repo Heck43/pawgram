@@ -72,3 +72,26 @@ settings.local.json
 
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
+
+# Pawgram / Local Security & Safety Ignores
+*.session
+*.session-journal
+tdata/
+DebugLogs/
+dumps/
+tdumps/
+tupdates/
+custom_features.ini
+TgWsProxy_data/
+tg-ws-proxy.exe
+TgWsProxy*.exe
+*.log
+*_log.txt
+*.key
+*.pem
+*.pfx
+*.p12
+*.tmp
+*.bak
+*.orig
+

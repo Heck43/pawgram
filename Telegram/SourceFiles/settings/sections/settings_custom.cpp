@@ -849,7 +849,7 @@ const auto kPanicMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
-	builder.addDividerText(rpl::single(u"Автоматически стирает tdata и кэш при обычном выходе (Logout), предотвращая сохранение следов."_q));
+	builder.addDividerText(rpl::single(u"Автоматически стирает tdata и кэш всего профиля (включая все авторизованные аккаунты в нём) при выходе из любого аккаунта."_q));
 
 	builder.addButton({
 		.title = rpl::single(u"Экстренная очистка (Wipe Data & Logout)"_q),
@@ -862,7 +862,7 @@ const auto kPanicMeta = BuildHelper({
 
 				Ui::AddDividerText(
 					layout,
-					rpl::single(u"Внимание! Это действие завершит сеанс на серверах Telegram и безвозвратно удалит все локальные данные с этого компьютера:"_q));
+					rpl::single(u"Внимание! Это действие отправит запрос на завершение сеансов на серверы Telegram (без гарантии доставки при отсутствии сети) и безвозвратно удалит локальные данные текущего профиля:"_q));
 
 				Ui::AddDividerText(
 					layout,
@@ -871,6 +871,22 @@ const auto kPanicMeta = BuildHelper({
 				Ui::AddDividerText(
 					layout,
 					rpl::single(u"Идеально подходит для работы на чужом или общественном ПК: никаких следов вашего пребывания не останется."_q));
+
+				const auto accountsCount = CustomFeatures::SessionWipeDetail::CountAuthorizedAccounts();
+				if (accountsCount > 1) {
+					Ui::AddDividerText(
+						layout,
+						rpl::single(u"Внимание: в этом профиле авторизовано несколько аккаунтов (%1). Очистка отправит запрос выхода и удалит локальные данные сразу для всех них."_q.arg(accountsCount)));
+				}
+
+				const auto canonicalWork = CustomFeatures::SessionWipeDetail::ResolveCanonicalLocalDirectory(cWorkingDir());
+				const auto displayWork = canonicalWork.isEmpty()
+					? QDir::toNativeSeparators(cWorkingDir())
+					: canonicalWork;
+				const auto scopeText = CustomFeatures::SessionWipeDetail::IsStandardAppDataWorkDir(canonicalWork)
+					? u"Режим профиля: стандартный (%1)."_q.arg(displayWork)
+					: u"Режим профиля: Portable / -workdir (%1). Стандартная папка AppData затронута не будет."_q.arg(displayWork);
+				Ui::AddDividerText(layout, rpl::single(scopeText));
 
 				box->addButton(
 					rpl::single(u"Очистить и закрыть"_q),
