@@ -283,8 +283,12 @@ void Stickers::incrementSticker(not_null<DocumentData*> document) {
 		}
 	}
 	if (CustomFeatures::GetConfig().unlimitedRecentStickers) {
+		const auto recentLimit = std::clamp(
+			CustomFeatures::GetConfig().recentStickersMaxCount,
+			20,
+			300);
 		recent.push_front(qMakePair(document, base::unixtime::now()));
-		while (recent.size() > 300) {
+		while (recent.size() > recentLimit) {
 			recent.pop_back();
 		}
 		writeOldRecent = true;

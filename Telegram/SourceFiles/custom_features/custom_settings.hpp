@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <QString>
 #include <QStringList>
 #include <QSettings>
@@ -14,6 +15,14 @@ struct ClientConfig {
     bool cleanTrackingUrls = true;        // Очистка UTM/si меток
     bool directExternalLinks = true;       // Переход без подтверждения
     bool enableDownloadsRouter = true;     // Умная сортировка файлов по папкам
+    bool downloadsRouteImages = true;      // Категория: Изображения
+    bool downloadsRouteVideo = true;       // Категория: Видео
+    bool downloadsRouteAudio = true;       // Категория: Музыка и аудио
+    bool downloadsRouteDocuments = true;   // Категория: Документы и книги
+    bool downloadsRouteArchives = true;    // Категория: Архивы
+    bool downloadsRoutePrograms = true;    // Категория: Программы
+    bool downloadsRouteOther = true;       // Категория: Разное
+    QString downloadsCustomBasePath;       // Кастомная базовая папка (пусто = по умолчанию)
     bool autoWipeOnLogout = false;         // Полная очистка tdata/логов при выходе (режим чужого ПК)
 
     // 2. Стикеры и медиа
@@ -66,9 +75,20 @@ struct ClientConfig {
         cleanTrackingUrls = s.value("cleanTrackingUrls", cleanTrackingUrls).toBool();
         directExternalLinks = s.value("directExternalLinks", directExternalLinks).toBool();
         enableDownloadsRouter = s.value("enableDownloadsRouter", enableDownloadsRouter).toBool();
+        downloadsRouteImages = s.value("downloadsRouteImages", downloadsRouteImages).toBool();
+        downloadsRouteVideo = s.value("downloadsRouteVideo", downloadsRouteVideo).toBool();
+        downloadsRouteAudio = s.value("downloadsRouteAudio", downloadsRouteAudio).toBool();
+        downloadsRouteDocuments = s.value("downloadsRouteDocuments", downloadsRouteDocuments).toBool();
+        downloadsRouteArchives = s.value("downloadsRouteArchives", downloadsRouteArchives).toBool();
+        downloadsRoutePrograms = s.value("downloadsRoutePrograms", downloadsRoutePrograms).toBool();
+        downloadsRouteOther = s.value("downloadsRouteOther", downloadsRouteOther).toBool();
+        downloadsCustomBasePath = s.value("downloadsCustomBasePath", downloadsCustomBasePath).toString();
         autoWipeOnLogout = s.value("autoWipeOnLogout", autoWipeOnLogout).toBool();
         unlimitedRecentStickers = s.value("unlimitedRecentStickers", unlimitedRecentStickers).toBool();
-        recentStickersMaxCount = s.value("recentStickersMaxCount", recentStickersMaxCount).toInt();
+        recentStickersMaxCount = std::clamp(
+            s.value("recentStickersMaxCount", recentStickersMaxCount).toInt(),
+            20,
+            300);
         unlimitedStickers = s.value("unlimitedStickers", unlimitedStickers).toBool();
         enableInGameOverlay = s.value("enableInGameOverlay", enableInGameOverlay).toBool();
         overlayAllGames = s.value("overlayAllGames", overlayAllGames).toBool();
@@ -83,21 +103,29 @@ struct ClientConfig {
         delayStickersLoad = s.value("delayStickersLoad", delayStickersLoad).toBool();
         delayStoriesLoad = s.value("delayStoriesLoad", delayStoriesLoad).toBool();
         trimMemoryOnMinimize = s.value("trimMemoryOnMinimize", trimMemoryOnMinimize).toBool();
-        pixmapCacheLimitMb = s.value("pixmapCacheLimitMb", pixmapCacheLimitMb).toInt();
-        if (pixmapCacheLimitMb < 8) pixmapCacheLimitMb = 8;
-        if (pixmapCacheLimitMb > 256) pixmapCacheLimitMb = 256;
+        pixmapCacheLimitMb = std::clamp(
+            s.value("pixmapCacheLimitMb", pixmapCacheLimitMb).toInt(),
+            8,
+            256);
         
-        chatBorderRadius = s.value("chatBorderRadius", chatBorderRadius).toInt();
-        messageBorderRadius = s.value("messageBorderRadius", messageBorderRadius).toInt();
+        chatBorderRadius = std::clamp(
+            s.value("chatBorderRadius", chatBorderRadius).toInt(),
+            0,
+            24);
+        messageBorderRadius = std::clamp(
+            s.value("messageBorderRadius", messageBorderRadius).toInt(),
+            0,
+            24);
         buttonBorderRadius = s.value("buttonBorderRadius", buttonBorderRadius).toInt();
         enableSoftShadows = s.value("enableSoftShadows", enableSoftShadows).toBool();
         uiDensity = s.value("uiDensity", uiDensity).toInt();
         animationSpeed = s.value("animationSpeed", animationSpeed).toInt();
         smoothScrolling = s.value("smoothScrolling", smoothScrolling).toBool();
         enableMotionBlur = s.value("enableMotionBlur", enableMotionBlur).toBool();
-        motionBlurIntensity = s.value("motionBlurIntensity", motionBlurIntensity).toInt();
-        if (motionBlurIntensity < 1) motionBlurIntensity = 1;
-        if (motionBlurIntensity > 10) motionBlurIntensity = 10;
+        motionBlurIntensity = std::clamp(
+            s.value("motionBlurIntensity", motionBlurIntensity).toInt(),
+            1,
+            10);
         fontSize = s.value("fontSize", fontSize).toInt();
 
         enableWsProxy = s.value("enableWsProxy", enableWsProxy).toBool();
@@ -114,6 +142,14 @@ struct ClientConfig {
         s.setValue("cleanTrackingUrls", cleanTrackingUrls);
         s.setValue("directExternalLinks", directExternalLinks);
         s.setValue("enableDownloadsRouter", enableDownloadsRouter);
+        s.setValue("downloadsRouteImages", downloadsRouteImages);
+        s.setValue("downloadsRouteVideo", downloadsRouteVideo);
+        s.setValue("downloadsRouteAudio", downloadsRouteAudio);
+        s.setValue("downloadsRouteDocuments", downloadsRouteDocuments);
+        s.setValue("downloadsRouteArchives", downloadsRouteArchives);
+        s.setValue("downloadsRoutePrograms", downloadsRoutePrograms);
+        s.setValue("downloadsRouteOther", downloadsRouteOther);
+        s.setValue("downloadsCustomBasePath", downloadsCustomBasePath);
         s.setValue("autoWipeOnLogout", autoWipeOnLogout);
         s.setValue("unlimitedRecentStickers", unlimitedRecentStickers);
         s.setValue("recentStickersMaxCount", recentStickersMaxCount);

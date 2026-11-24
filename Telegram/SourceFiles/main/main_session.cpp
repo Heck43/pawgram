@@ -226,27 +226,38 @@ Session::Session(
 		}
 	}, [=] {
 		// CUSTOM: Delayed sticker loading for faster startup
-		// Load stickers in background after UI is ready
-		crl::on_main([=] {
-			base::call_delayed(crl::time(500), [=] {
+		// Chain local storage reads across event-loop turns with guarded Session lifetime.
+		const auto loadStickersChained = [=] {
+			crl::on_main(this, [=] {
 				local().readInstalledStickers();
 				local().readInstalledMasks();
 				local().readInstalledCustomEmoji();
-				local().readFeaturedStickers();
-				local().readFeaturedCustomEmoji();
-				local().readRecentStickers();
-				local().readRecentMasks();
-				local().readFavedStickers();
-				local().readSavedGifs();
-				
-				data().stickers().notifyUpdated(Data::StickersType::Stickers);
-				data().stickers().notifyUpdated(Data::StickersType::Masks);
-				data().stickers().notifyUpdated(Data::StickersType::Emoji);
-				data().stickers().notifySavedGifsUpdated();
-				DEBUG_LOG(("Init: Account stored data load finished (delayed)."));
+				crl::on_main(this, [=] {
+					local().readFeaturedStickers();
+					local().readFeaturedCustomEmoji();
+					local().readRecentStickers();
+					crl::on_main(this, [=] {
+						local().readRecentMasks();
+						local().readFavedStickers();
+						local().readSavedGifs();
+
+						data().stickers().notifyUpdated(Data::StickersType::Stickers);
+						data().stickers().notifyUpdated(Data::StickersType::Masks);
+						data().stickers().notifyUpdated(Data::StickersType::Emoji);
+						data().stickers().notifySavedGifsUpdated();
+						DEBUG_LOG(("Init: Account stored data load finished."));
+					});
+				});
 			});
-		});
-		DEBUG_LOG(("Init: Fast startup - stickers deferred."));
+		};
+		const auto &cfg = CustomFeatures::GetConfig();
+		if (cfg.fastStartup && cfg.delayStickersLoad) {
+			base::call_delayed(crl::time(500), this, loadStickersChained);
+			DEBUG_LOG(("Init: Fast startup - stickers deferred."));
+		} else {
+			loadStickersChained();
+			DEBUG_LOG(("Init: Fast startup disabled - stickers queued immediately."));
+		}
 	} }).dispatch();
 
 #ifndef TDESKTOP_DISABLE_SPELLCHECK
@@ -260,13 +271,15 @@ Session::Session(
 	Core::App().downloadManager().trackSession(this);
 
 #ifdef Q_OS_WIN
-	CustomFeatures::GameActivityDetector::Instance().startMonitoring([=](const auto &game, bool playing) {
-		if (playing) {
-			LOG(("Game Activity: Started playing %1").arg(game.displayName));
-		} else {
-			LOG(("Game Activity: Stopped playing"));
-		}
-	});
+	if (CustomFeatures::GetConfig().enableGameStatus) {
+		CustomFeatures::GameActivityDetector::Instance().startMonitoring([=](const auto &game, bool playing) {
+			if (playing) {
+				LOG(("Game Activity: Started playing %1").arg(game.displayName));
+			} else {
+				LOG(("Game Activity: Stopped playing"));
+			}
+		});
+	}
 #endif // Q_OS_WIN
 
 	appConfig().value(

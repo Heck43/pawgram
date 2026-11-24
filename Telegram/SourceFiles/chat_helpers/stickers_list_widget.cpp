@@ -3367,7 +3367,7 @@ auto StickersListWidget::collectRecentStickers() -> std::vector<Sticker> {
 
 	auto add = [&](not_null<DocumentData*> document, bool custom) {
 		const auto limit = CustomFeatures::GetConfig().unlimitedRecentStickers
-			? 300
+			? std::clamp(CustomFeatures::GetConfig().recentStickersMaxCount, 20, 300)
 			: kRecentDisplayLimit;
 		if (result.size() >= limit && !OptionUnlimitedRecentStickers.value()) {
 			return;
