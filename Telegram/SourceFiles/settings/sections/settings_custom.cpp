@@ -1572,7 +1572,7 @@ protected:
 		}
 	}
 
-	void leaveEvent(QEvent *e) override {
+	void leaveEventHook(QEvent *e) override {
 		if (_over != -1) {
 			_over = -1;
 			update();
